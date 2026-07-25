@@ -9,8 +9,33 @@ using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddDbContext<AtendimentoDbContext>(opt =>
-    opt.UseNpgsql(builder.Configuration.GetConnectionString("Postgres")));
+// A plataforma de hospedagem escolhe a porta e a informa em PORT. Escutar em
+// outra faz o deploy subir e nunca responder ao roteador.
+var enderecoDeEscuta = ConfiguracaoDeAmbiente.EnderecoDeEscuta(builder.Configuration);
+
+if (enderecoDeEscuta is not null)
+{
+    builder.WebHost.UseUrls(enderecoDeEscuta);
+}
+
+// A configuracao vem do container, resolvida depois do Build(). Ler de
+// builder.Configuration aqui congelaria o valor do appsettings e ignoraria
+// qualquer fonte adicionada depois — foi assim que a chave do JWT passou a
+// divergir entre quem assina e quem valida.
+builder.Services.AddDbContext<AtendimentoDbContext>((sp, opt) =>
+{
+    var config = sp.GetRequiredService<IConfiguration>();
+
+    var conexao = ConfiguracaoDeAmbiente.ConexaoPostgres(config);
+
+    if (string.IsNullOrWhiteSpace(conexao))
+    {
+        throw new InvalidOperationException(
+            "Configure DATABASE_URL ou ConnectionStrings__Postgres com a conexao do Postgres.");
+    }
+
+    opt.UseNpgsql(conexao);
+});
 
 builder.Services.AddScoped<RegistradorAuditoria>();
 builder.Services.AddScoped<ServicoAtendimento>();
@@ -60,8 +85,10 @@ builder.Services
 builder.Services.AddAuthorization();
 
 const string PoliticaCors = "front";
+var origens = ConfiguracaoDeAmbiente.OrigensCors(builder.Configuration);
+
 builder.Services.AddCors(opt => opt.AddPolicy(PoliticaCors, p => p
-    .WithOrigins(builder.Configuration.GetSection("Cors:Origens").Get<string[]>() ?? Array.Empty<string>())
+    .WithOrigins(origens)
     .AllowAnyHeader()
     .AllowAnyMethod()));
 
@@ -73,8 +100,32 @@ if (builder.Configuration.GetValue("Banco:MigrarNoBoot", true))
 {
     using var escopo = app.Services.CreateScope();
     var db = escopo.ServiceProvider.GetRequiredService<AtendimentoDbContext>();
-    await db.Database.MigrateAsync();
-    await Seed.ExecutarAsync(db);
+    var log = escopo.ServiceProvider.GetRequiredService<ILogger<Program>>();
+
+    // Em container, banco e aplicacao sobem juntos e o banco costuma demorar
+    // alguns segundos a mais. Sem espera, o primeiro boot morre e fica na mao
+    // da politica de restart da plataforma.
+    const int tentativas = 10;
+
+    for (var tentativa = 1; ; tentativa++)
+    {
+        try
+        {
+            await db.Database.MigrateAsync();
+            await Seed.ExecutarAsync(db);
+            break;
+        }
+        catch (Exception erro) when (tentativa < tentativas)
+        {
+            var espera = TimeSpan.FromSeconds(Math.Min(tentativa * 2, 15));
+            log.LogWarning(
+                erro,
+                "Banco indisponivel na tentativa {Tentativa}/{Total}. Nova tentativa em {Espera}s.",
+                tentativa, tentativas, espera.TotalSeconds);
+
+            await Task.Delay(espera);
+        }
+    }
 }
 
 // Regra de negocio vira 400 com a lista de erros, que e o formato que o

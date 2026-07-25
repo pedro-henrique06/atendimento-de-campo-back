@@ -32,6 +32,66 @@ dotnet test
 
 Sem essa variável os testes de integração são pulados, não falham.
 
+## Deploy no Railway
+
+O repositório traz `Dockerfile` e `railway.json`. O Nixpacks não lida bem com
+solução multi-projeto, então o build usa Docker explicitamente.
+
+### 1. Banco
+
+Adicione um **PostgreSQL** ao projeto no Railway. Ele expõe `DATABASE_URL` no
+formato URI (`postgresql://usuário:senha@host:porta/banco`), que o Npgsql não
+entende nativamente — a aplicação converte no boot.
+
+Referencie a variável no serviço da API:
+
+```
+DATABASE_URL = ${{Postgres.DATABASE_URL}}
+```
+
+Prefira a URL **interna** (`*.railway.internal`) quando API e banco estão no
+mesmo projeto: não sai para a internet e não consome tráfego de egresso.
+
+### 2. Variáveis
+
+| Variável | Valor |
+|---|---|
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+| `Jwt__Chave` | segredo com **32+ caracteres** |
+| `Jwt__Emissor` | `atendimento-de-campo` |
+| `Jwt__Audiencia` | `atendimento-de-campo-app` |
+| `Auth__SenhaEquipe` | senha de primeiro acesso da equipe |
+| `Cors__OrigensTexto` | URL do front, ex.: `https://seu-app.up.railway.app` |
+
+`PORT` é injetada pela plataforma; não defina à mão.
+
+O separador é `__` (dois sublinhados) — é assim que o ASP.NET Core mapeia
+variável de ambiente para configuração aninhada.
+
+`DATABASE_URL` tem prioridade sobre `ConnectionStrings__Postgres`. A ordem
+importa: o `appsettings.json` traz uma conexão de desenvolvimento que nunca é
+nula, e se ela vencesse o deploy tentaria `localhost:5432` e morreria no boot.
+
+`Cors__OrigensTexto` aceita várias origens separadas por vírgula. Existe porque
+o painel do Railway só oferece campo de texto simples, e a forma nativa de
+declarar lista (`Cors__Origens__0`) é fácil de errar. Barra final é removida
+automaticamente: o navegador envia a origem sem ela, e com a barra o CORS
+falharia sem explicar o motivo.
+
+### 3. Health check
+
+`railway.json` aponta para `/health`. A aplicação roda migrations e seed no
+boot, com espera e novas tentativas enquanto o banco não responde — no primeiro
+deploy o Postgres costuma demorar alguns segundos a mais que a API.
+
+### Como isso foi verificado
+
+A aplicação publicada foi executada como a plataforma faz, apenas com `PORT` e
+`DATABASE_URL` em formato URI, confirmando que ela escuta em `0.0.0.0` na porta
+recebida, conecta ao banco, aplica migrations, semeia os dados, responde ao
+health check, libera somente a origem configurada no CORS e mantém o Swagger
+fora do ar fora de Development.
+
 ## Estrutura
 
 | Projeto | Papel |
