@@ -265,8 +265,27 @@ public class FluxoAtendimentoTests : IClassFixture<ApiFixture>
         // Auditoria cobre criacao, etapas e finalizacao.
         Assert.Contains(final.Historico, h => h.Acao == AcaoAuditoria.CriouAtendimento);
         Assert.Contains(final.Historico, h => h.Acao == AcaoAuditoria.FinalizouAtendimento);
-        Assert.Contains(final.Historico, h => h.Campo == "Odontograma");
-        Assert.Contains(final.Historico, h => h.Campo == "Classificacao de risco (START)");
+        // A auditoria guarda chave e valor canonicos; quem traduz e a interface.
+        var odontograma = Assert.Single(
+            final.Historico.Where(h => h.Campo == "odontologia.odontograma"));
+
+        Assert.Equal("Carie:38(M,O);ExtracaoIndicada:38", odontograma.ValorNovo);
+
+        var procedimentos = Assert.Single(
+            final.Historico.Where(h => h.Campo == "odontologia.procedimentos"));
+
+        Assert.Equal("ProfilaxiaLimpeza,OrientacaoHigieneBucal", procedimentos.ValorNovo);
+
+        var classificacao = Assert.Single(
+            final.Historico.Where(h => h.Campo == "triagem.classificacaoRisco"));
+
+        Assert.Equal("Verde", classificacao.ValorNovo);
+
+        // Nenhum campo da auditoria pode carregar rotulo ja traduzido: isso
+        // congelaria o historico no idioma de quem digitou.
+        Assert.All(
+            final.Historico.Where(h => h.Campo is not null),
+            h => Assert.Matches(@"^[a-z]+\.[a-zA-Z0-9]+$", h.Campo!));
     }
 
     [SkippableFact]

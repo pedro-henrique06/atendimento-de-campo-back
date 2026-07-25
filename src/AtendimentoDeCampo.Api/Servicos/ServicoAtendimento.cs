@@ -1,3 +1,4 @@
+using System.Globalization;
 using AtendimentoDeCampo.Api.Contratos;
 using AtendimentoDeCampo.Domain;
 using AtendimentoDeCampo.Domain.Servicos;
@@ -261,10 +262,12 @@ public sealed class ServicoAtendimento
                 atendimentoId, profissionalId,
                 new[]
                 {
+                    // Canonico: a interface monta a frase "o protocolo sugeriu X,
+                    // o profissional classificou como Y" no idioma de quem le.
                     new DiffCampo(
-                        "Classificacao de risco (START)",
-                        $"sugestao do protocolo: {sugestao.Classificacao} ({sugestao.Motivo})",
-                        $"escolhida pelo profissional: {req.ClassificacaoRisco}")
+                        "triagem.divergenciaStart",
+                        sugestao.Classificacao.ToString(),
+                        req.ClassificacaoRisco.ToString())
                 },
                 Especialidade.Triagem,
                 aposFinalizacao: false);
@@ -580,7 +583,7 @@ public sealed class ServicoAtendimento
             AtendimentoId = atendimentoId,
             ProfissionalId = profissionalId,
             Acao = AcaoAuditoria.ReabriuAtendimento,
-            Campo = "Justificativa",
+            Campo = "atendimento.justificativaReabertura",
             ValorNovo = req.Justificativa.Trim()
         });
 
@@ -865,63 +868,70 @@ public sealed class ServicoAtendimento
 
     // -----------------------------------------------------------------------
     // Snapshots para o diff da auditoria
+    //
+    // As chaves e os valores gravados aqui sao CANONICOS: chave estavel de
+    // campo e nome de enum, nunca texto traduzido. Quem traduz e a interface,
+    // no idioma de quem esta lendo.
+    //
+    // CORRIGE, tambem no proprio sistema: gravar o rotulo pronto congelaria o
+    // historico no idioma de quem digitou — um registro feito em espanhol
+    // apareceria em espanhol para quem le em portugues meses depois — e faria
+    // o identificador do enum vazar para a tela, que e exatamente o defeito
+    // observado no sistema de referencia (`consulta_medica` cru no relatorio).
     // -----------------------------------------------------------------------
 
     private static Dictionary<string, string?> SnapshotTriagem(Triagem t) => new()
     {
-        ["Pressao arterial (mmHg)"] = t.PressaoSistolica is null ? null : $"{t.PressaoSistolica}x{t.PressaoDiastolica}",
-        ["Frequencia cardiaca (bpm)"] = t.FrequenciaCardiaca?.ToString(),
-        ["Frequencia respiratoria (irpm)"] = t.FrequenciaRespiratoria?.ToString(),
-        ["Saturacao O2 (%)"] = t.SaturacaoO2?.ToString(),
-        ["Temperatura (C)"] = t.TemperaturaCelsius?.ToString(),
-        ["Glicemia capilar"] = t.GlicemiaCapilar?.ToString(),
-        ["Sintomas atuais"] = t.Sintomas.Count == 0 ? null : string.Join(", ", t.Sintomas),
-        ["Outro sintoma"] = t.OutroSintoma,
-        ["Medicamentos em uso"] = t.MedicamentosEmUso,
-        ["Alergia"] = DescreverAlergia(t.StatusAlergia, t.Alergias),
-        ["Classificacao de risco (START)"] = t.ClassificacaoRisco.ToString(),
-        ["Encaminhamento"] = t.Encaminhamento?.ToString(),
-        ["Observacoes"] = t.Observacoes
+        ["triagem.pressaoArterial"] = t.PressaoSistolica is null ? null : $"{t.PressaoSistolica}x{t.PressaoDiastolica}",
+        ["triagem.frequenciaCardiaca"] = t.FrequenciaCardiaca?.ToString(),
+        ["triagem.frequenciaRespiratoria"] = t.FrequenciaRespiratoria?.ToString(),
+        ["triagem.saturacaoO2"] = t.SaturacaoO2?.ToString(),
+        ["triagem.temperatura"] = t.TemperaturaCelsius?.ToString(CultureInfo.InvariantCulture),
+        ["triagem.glicemia"] = t.GlicemiaCapilar?.ToString(),
+        ["triagem.sintomas"] = t.Sintomas.Count == 0 ? null : string.Join(",", t.Sintomas),
+        ["triagem.outroSintoma"] = t.OutroSintoma,
+        ["triagem.medicamentosEmUso"] = t.MedicamentosEmUso,
+        ["triagem.statusAlergia"] = t.StatusAlergia.ToString(),
+        ["triagem.alergias"] = t.Alergias,
+        ["triagem.classificacaoRisco"] = t.ClassificacaoRisco.ToString(),
+        ["triagem.encaminhamento"] = t.Encaminhamento?.ToString(),
+        ["triagem.observacoes"] = t.Observacoes
     };
 
     private static Dictionary<string, string?> SnapshotConsulta(Consulta c) => new()
     {
-        ["Sintomas"] = c.SintomasDescricao,
-        ["Diagnostico (CID-10)"] = c.Cid10Codigo,
-        ["Observacao do diagnostico"] = c.DiagnosticoObservacao,
-        ["Conduta"] = c.Conduta,
-        ["Desfecho da consulta"] = c.Desfecho?.ToString(),
-        ["Encaminhado para"] = c.EncaminhadoPara?.ToString(),
-        ["Sintomas de saude mental"] = c.SintomasSaudeMental.Count == 0 ? null : string.Join(", ", c.SintomasSaudeMental),
-        ["Perdas vivenciadas"] = c.PerdasVivenciadas.Count == 0 ? null : string.Join(", ", c.PerdasVivenciadas),
-        ["Localizacao"] = c.Ortopedia?.Localizacao,
-        ["Mecanismo do trauma"] = c.Ortopedia?.MecanismoTrauma,
-        ["Imobilizacao"] = c.Ortopedia is null ? null : (c.Ortopedia.Imobilizacao ? "Sim" : "Nao"),
-        ["Necessita raio-X"] = c.Ortopedia is null ? null : (c.Ortopedia.NecessitaRaioX ? "Sim" : "Nao")
+        ["consulta.sintomas"] = c.SintomasDescricao,
+        ["consulta.cid10"] = c.Cid10Codigo,
+        ["consulta.diagnosticoObservacao"] = c.DiagnosticoObservacao,
+        ["consulta.conduta"] = c.Conduta,
+        ["consulta.desfecho"] = c.Desfecho?.ToString(),
+        ["consulta.encaminhadoPara"] = c.EncaminhadoPara?.ToString(),
+        ["consulta.sintomasSaudeMental"] = c.SintomasSaudeMental.Count == 0 ? null : string.Join(",", c.SintomasSaudeMental),
+        ["consulta.perdasVivenciadas"] = c.PerdasVivenciadas.Count == 0 ? null : string.Join(",", c.PerdasVivenciadas),
+        ["ortopedia.localizacao"] = c.Ortopedia?.Localizacao,
+        ["ortopedia.mecanismoTrauma"] = c.Ortopedia?.MecanismoTrauma,
+        ["ortopedia.imobilizacao"] = c.Ortopedia is null ? null : Booleano(c.Ortopedia.Imobilizacao),
+        ["ortopedia.necessitaRaioX"] = c.Ortopedia is null ? null : Booleano(c.Ortopedia.NecessitaRaioX)
     };
 
     private static Dictionary<string, string?> SnapshotOdontologia(Odontologia o) => new()
     {
-        ["Queixa / observacoes"] = o.Queixa,
-        ["Diagnostico (CID-10)"] = o.Cid10Codigo,
-        ["Procedimentos realizados"] = o.Procedimentos.Count == 0 ? null : string.Join(", ", o.Procedimentos),
-        ["Outro procedimento"] = o.OutroProcedimento,
-        ["Odontograma"] = o.Marcacoes.Count == 0 ? null : Odontograma.Resumir(o.Marcacoes),
-        ["Desfecho da consulta"] = o.Desfecho?.ToString()
+        ["odontologia.queixa"] = o.Queixa,
+        ["odontologia.cid10"] = o.Cid10Codigo,
+        ["odontologia.procedimentos"] = o.Procedimentos.Count == 0 ? null : string.Join(",", o.Procedimentos),
+        ["odontologia.outroProcedimento"] = o.OutroProcedimento,
+        ["odontologia.odontograma"] = o.Marcacoes.Count == 0 ? null : Odontograma.ResumirCanonico(o.Marcacoes),
+        ["odontologia.desfecho"] = o.Desfecho?.ToString()
     };
 
     private static Dictionary<string, string?> SnapshotEnfermagem(Enfermagem e) => new()
     {
-        ["Procedimentos"] = e.Procedimentos.Count == 0 ? null : string.Join(", ", e.Procedimentos),
-        ["Outro procedimento"] = e.OutroProcedimento,
-        ["Observacoes"] = e.Observacoes,
-        ["Desfecho da consulta"] = e.Desfecho?.ToString()
+        ["enfermagem.procedimentos"] = e.Procedimentos.Count == 0 ? null : string.Join(",", e.Procedimentos),
+        ["enfermagem.outroProcedimento"] = e.OutroProcedimento,
+        ["enfermagem.observacoes"] = e.Observacoes,
+        ["enfermagem.desfecho"] = e.Desfecho?.ToString()
     };
 
-    private static string DescreverAlergia(StatusAlergia status, string? alergias) => status switch
-    {
-        StatusAlergia.PossuiAlergia => $"Possui: {alergias}",
-        StatusAlergia.SemAlergiaConhecida => "Sem alergia conhecida",
-        _ => "Nao perguntado"
-    };
+    /// <summary>Booleano canonico, traduzido na interface.</summary>
+    private static string Booleano(bool valor) => valor ? "true" : "false";
 }

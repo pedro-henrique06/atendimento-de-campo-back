@@ -56,6 +56,19 @@ public static class Odontograma
         return comuns;
     }
 
+    /// <summary>
+    /// Estados que se localizam em faces especificas. Os demais dizem respeito
+    /// ao dente inteiro: extracao indicada, protese, implante, resto radicular
+    /// e ausente nao tem face, e aceitar uma so produziria dado sem significado.
+    /// </summary>
+    public static readonly IReadOnlyList<EstadoDente> EstadosComFace = new[]
+    {
+        EstadoDente.Carie,
+        EstadoDente.Restaurado,
+        EstadoDente.Fratura,
+        EstadoDente.Selante
+    };
+
     public static IReadOnlyList<string> ValidarMarcacao(int dente, EstadoDente estado, IEnumerable<FaceDentaria> faces)
     {
         var erros = new List<string>();
@@ -66,8 +79,10 @@ public static class Odontograma
             return erros;
         }
 
+        var lista = faces.Distinct().ToList();
         var facesValidas = FacesValidas(dente);
-        foreach (var face in faces.Distinct())
+
+        foreach (var face in lista)
         {
             if (!facesValidas.Contains(face))
             {
@@ -75,10 +90,9 @@ public static class Odontograma
             }
         }
 
-        // Dente ausente nao tem face para marcar.
-        if (estado == EstadoDente.Ausente && faces.Any())
+        if (lista.Count > 0 && !EstadosComFace.Contains(estado))
         {
-            erros.Add($"Dente {dente} marcado como ausente nao deve ter faces.");
+            erros.Add($"Estado {estado} e do dente inteiro e nao aceita faces (dente {dente}).");
         }
 
         return erros;
@@ -108,8 +122,31 @@ public static class Odontograma
     }
 
     /// <summary>
-    /// Resumo textual do odontograma, no formato "Carie: 38(M,O); Extracao
-    /// indicada: 38" usado no prontuario e no historico de alteracoes.
+    /// Forma canonica do odontograma, com os nomes dos enums e sem traducao:
+    /// "Carie:38(M,O);ExtracaoIndicada:38".
+    ///
+    /// E o que vai para a auditoria. Guardar o rotulo traduzido congelaria o
+    /// historico no idioma de quem digitou, e um registro do plantao em
+    /// espanhol apareceria em espanhol para quem le em portugues depois.
+    /// </summary>
+    public static string ResumirCanonico(IEnumerable<MarcacaoDente> marcacoes)
+    {
+        var porEstado = marcacoes
+            .Where(m => m.Estado != EstadoDente.Higido)
+            .GroupBy(m => m.Estado)
+            .OrderBy(g => g.Key)
+            .Select(g =>
+            {
+                var dentes = g.OrderBy(m => m.Dente).Select(FormatarDente);
+                return $"{g.Key}:{string.Join(",", dentes)}";
+            });
+
+        return string.Join(";", porEstado);
+    }
+
+    /// <summary>
+    /// Resumo legivel do odontograma, no formato "Carie: 38(M,O); Extracao
+    /// indicada: 38". Usado onde o texto ja sai pronto do servidor.
     /// </summary>
     public static string Resumir(IEnumerable<MarcacaoDente> marcacoes)
     {

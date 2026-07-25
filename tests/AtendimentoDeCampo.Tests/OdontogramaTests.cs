@@ -130,6 +130,39 @@ public class OdontogramaTests
         Assert.NotEmpty(erros);
     }
 
+    [Theory]
+    [InlineData(EstadoDente.ExtracaoIndicada)]
+    [InlineData(EstadoDente.Protese)]
+    [InlineData(EstadoDente.Implante)]
+    [InlineData(EstadoDente.RestoRadicular)]
+    public void EstadoDeDenteInteiroNaoAceitaFace(EstadoDente estado)
+    {
+        // Extracao indicada e protese sao do dente todo; face ali nao tem
+        // significado clinico e viraria dado sujo no relatorio.
+        var erros = Odontograma.ValidarMarcacao(38, estado, new[] { FaceDentaria.Oclusal });
+
+        Assert.NotEmpty(erros);
+    }
+
+    [Theory]
+    [InlineData(EstadoDente.Carie)]
+    [InlineData(EstadoDente.Restaurado)]
+    [InlineData(EstadoDente.Fratura)]
+    [InlineData(EstadoDente.Selante)]
+    public void EstadoDeFaceAceitaFace(EstadoDente estado)
+    {
+        Assert.Empty(Odontograma.ValidarMarcacao(38, estado, new[] { FaceDentaria.Oclusal }));
+    }
+
+    [Fact]
+    public void EstadoDeDenteInteiroSemFacePassa()
+    {
+        Assert.Empty(Odontograma.ValidarMarcacao(
+            38,
+            EstadoDente.ExtracaoIndicada,
+            Array.Empty<FaceDentaria>()));
+    }
+
     [Fact]
     public void DentesHigidosNaoPoluemOResumo()
     {
