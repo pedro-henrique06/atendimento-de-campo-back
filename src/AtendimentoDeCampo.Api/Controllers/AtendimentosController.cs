@@ -59,6 +59,18 @@ public class AtendimentosController : ControllerBase
         CancellationToken ct)
         => Ok(await _servico.AssumirEtapaAsync(id, especialidade, ProfissionalId, ct));
 
+    /// <summary>
+    /// Manda o paciente desta fila para outra, sem fechar consulta nenhuma.
+    /// E o caminho de quem recebeu o paciente e viu que ele nao e para ali.
+    /// </summary>
+    [HttpPost("{id:guid}/etapas/{especialidade}/encaminhar")]
+    public async Task<ActionResult<ProntuarioDto>> Encaminhar(
+        Guid id,
+        Especialidade especialidade,
+        [FromBody] EncaminharRequest req,
+        CancellationToken ct)
+        => Ok(await _servico.EncaminharAsync(id, especialidade, req.Destino, req.Motivo, ProfissionalId, ct));
+
     /// <summary>Devolve a etapa para a fila.</summary>
     [HttpPost("{id:guid}/etapas/{especialidade}/liberar")]
     public async Task<ActionResult<AtendimentoResumoDto>> Liberar(

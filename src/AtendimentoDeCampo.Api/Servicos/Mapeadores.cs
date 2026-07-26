@@ -109,7 +109,14 @@ public static class Mapeadores
             odontoEtapa?.Odontologia is null ? null : ParaOdontologiaDto(odontoEtapa),
             enfEtapa?.Enfermagem is null ? null : ParaEnfermagemDto(enfEtapa),
             tempos,
-            historico);
+            historico,
+            etapas.Select(e => new EtapaResumoDto(
+                e.Id,
+                e.Especialidade,
+                e.Status,
+                e.Profissional?.Nome,
+                e.IniciadaEm,
+                e.ConcluidaEm)).ToList());
     }
 
     private static TriagemDto ParaTriagemDto(Etapa etapa)

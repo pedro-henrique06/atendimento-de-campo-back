@@ -122,6 +122,19 @@ public sealed record DefinirAtivaRequest
 
 public sealed record PrefixoSugeridoDto(string Prefixo);
 
+public sealed record EncaminharRequest
+{
+    public Especialidade Destino { get; init; }
+
+    /// <summary>
+    /// Obrigatorio: quem recebe o paciente na fila seguinte precisa saber por
+    /// que ele chegou ali. Encaminhamento mudo faz o paciente circular entre
+    /// filas sem ninguem entender o caminho.
+    /// </summary>
+    [Required, MaxLength(300)]
+    public string Motivo { get; init; } = string.Empty;
+}
+
 // ---------------------------------------------------------------------------
 // Paciente e atendimento
 // ---------------------------------------------------------------------------
@@ -264,7 +277,12 @@ public sealed record ProntuarioDto(
     OdontologiaDto? Odontologia,
     EnfermagemDto? Enfermagem,
     List<EsperaFilaDto> TempoNasFilas,
-    List<AuditoriaDto> Historico);
+    List<AuditoriaDto> Historico,
+    /// <summary>
+    /// Etapas do atendimento. A tela precisa delas para saber qual fila esta
+    /// aberta e oferecer o encaminhamento a partir dela.
+    /// </summary>
+    List<EtapaResumoDto> Etapas);
 
 // ---------------------------------------------------------------------------
 // Triagem

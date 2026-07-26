@@ -243,6 +243,28 @@ consulta. Trancar aqui atrapalharia o atendimento sem proteger nada, já que que
 entrou no sistema foi aprovado pela coordenação. "Todas as filas" continua
 disponível para todo mundo.
 
+### Encaminhar
+
+Depois da triagem, quem recebe o paciente na própria fila pode mandá-lo para
+outra. Isso já existia **como efeito** de fechar a consulta com desfecho
+"Encaminhado" — mas esse caminho exige CID-10. Quando a triagem simplesmente
+errou a fila (problema dentário que caiu na clínica geral), obrigaria o médico a
+inventar um diagnóstico para uma consulta que não aconteceu. E não havia caminho
+nenhum saindo da odontologia e da enfermagem, cujas fichas não têm campo de
+encaminhamento.
+
+`POST .../encaminhar` é ação de roteamento, não conclusão clínica:
+
+- **O motivo é obrigatório.** Quem recebe o paciente precisa saber por que ele
+  chegou ali; encaminhamento mudo faz o paciente circular sem ninguém entender o
+  caminho.
+- **A fila de origem fica `Cancelada`, não `Concluida`,** quando nada clínico foi
+  registrado ali. O paciente nunca foi atendido naquela fila, e marcar como
+  concluída inflaria a produção da especialidade com atendimentos que não
+  existiram.
+- O motivo e a troca de fila vão para a auditoria com chave e valores canônicos,
+  traduzidos na hora de exibir.
+
 ### Assumir
 
 `Etapa.ProfissionalId` deixa de ser só o registro de quem atendeu e passa a
@@ -295,6 +317,7 @@ clínico não decide no lugar de quem está com o paciente na frente.
 | `GET` | `/api/atendimentos/codigo/{codigo}` | Busca pelo código curto |
 | `POST` | `/api/atendimentos/{id}/etapas/{especialidade}/assumir` | Assume a etapa |
 | `POST` | `/api/atendimentos/{id}/etapas/{especialidade}/liberar` | Devolve para a fila |
+| `POST` | `/api/atendimentos/{id}/etapas/{especialidade}/encaminhar` | Manda para outra fila |
 | `POST` | `/api/atendimentos` | Cadastro do paciente + abertura |
 | `PUT` | `/api/atendimentos/{id}/triagem` | Triagem e classificação START |
 | `PUT` | `/api/atendimentos/{id}/consulta` | Consulta médica / pediatria / ortopedia / saúde mental |

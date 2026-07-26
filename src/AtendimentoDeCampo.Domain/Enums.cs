@@ -315,5 +315,8 @@ public enum AcaoAuditoria
     AssumiuEtapa = 8,
 
     /// <summary>Devolveu a etapa para a fila, sem ter registrado o atendimento.</summary>
-    LiberouEtapa = 9
+    LiberouEtapa = 9,
+
+    /// <summary>Mandou o paciente para outra fila.</summary>
+    EncaminhouParaOutraFila = 10
 }

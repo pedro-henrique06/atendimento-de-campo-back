@@ -836,6 +836,95 @@ public sealed class ServicoAtendimento
         return Mapeadores.ParaResumo(atendimento);
     }
 
+    /// <summary>
+    /// Manda o paciente para outra fila, sem fechar consulta nenhuma.
+    ///
+    /// Ate agora a unica forma de redirecionar era concluir a consulta com
+    /// desfecho "Encaminhado", o que exige CID-10. Quando a triagem simplesmente
+    /// errou a fila — problema dentario que caiu na clinica geral — isso
+    /// obrigaria o medico a inventar um diagnostico para uma consulta que nao
+    /// aconteceu. E tambem nao existia caminho nenhum saindo da odontologia e da
+    /// enfermagem, que nao tem campo de encaminhamento.
+    ///
+    /// O motivo e obrigatorio: quem recebe o paciente na fila seguinte precisa
+    /// saber por que ele chegou ali, e um encaminhamento mudo faz o paciente
+    /// circular entre filas sem ninguem entender o caminho.
+    /// </summary>
+    public async Task<ProntuarioDto> EncaminharAsync(
+        Guid atendimentoId,
+        Especialidade origem,
+        Especialidade destino,
+        string? motivo,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        if (origem == destino)
+        {
+            throw new RegraDeNegocioException("A fila de destino e a mesma de origem.");
+        }
+
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            throw new RegraDeNegocioException("Informe o motivo do encaminhamento.");
+        }
+
+        var atendimento = await CarregarAsync(atendimentoId, ct);
+
+        if (atendimento.FinalizadoEm is not null)
+        {
+            throw new RegraDeNegocioException(
+                "Este atendimento ja foi finalizado. Reabra antes de encaminhar.");
+        }
+
+        var etapa = atendimento.Etapas.FirstOrDefault(e => e.Especialidade == origem)
+            ?? throw new RegraDeNegocioException("Este atendimento nao passou por esta fila.");
+
+        if (etapa.Status == StatusEtapa.Concluida)
+        {
+            throw new RegraDeNegocioException("Esta etapa ja foi concluida.");
+        }
+
+        /*
+            Nada clinico registrado significa que o paciente nunca foi atendido
+            aqui: a etapa e cancelada, nao concluida. Marcar como concluida
+            inflaria a producao da especialidade com atendimentos que nao
+            existiram — e producao por area e justamente o numero que este
+            sistema precisa manter confiavel.
+        */
+        var houveAtendimento = etapa.Triagem is not null
+            || etapa.Consulta is not null
+            || etapa.Odontologia is not null
+            || etapa.Enfermagem is not null;
+
+        etapa.Status = houveAtendimento ? StatusEtapa.Concluida : StatusEtapa.Cancelada;
+        etapa.ConcluidaEm = DateTime.UtcNow;
+        etapa.ProfissionalId = profissionalId;
+
+        FecharPassagem(atendimento, origem);
+        await AbrirFilaAsync(atendimento, destino, ct);
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.EncaminhouParaOutraFila, origem, ct);
+
+        // Chave e valores canonicos: a traducao acontece na hora de exibir, para
+        // o historico nao congelar no idioma de quem encaminhou.
+        _auditoria.RegistrarDiffs(
+            atendimentoId,
+            profissionalId,
+            new[]
+            {
+                new DiffCampo("atendimento.fila", origem.ToString(), destino.ToString()),
+                new DiffCampo("atendimento.motivoEncaminhamento", null, motivo.Trim())
+            },
+            origem,
+            aposFinalizacao: false);
+
+        atendimento.AtualizadoEm = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return await ObterProntuarioAsync(atendimentoId, ct);
+    }
+
     private async Task<Atendimento> CarregarComEtapasAsync(Guid id, CancellationToken ct)
         => await _db.Atendimentos
             .Include(a => a.Paciente)
