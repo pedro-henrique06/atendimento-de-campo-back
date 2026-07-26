@@ -66,6 +66,14 @@ public class Profissional
 public class Paciente
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Codigo legivel entregue ao paciente, ex.: "4K7Z-2YAP". E o unico jeito de
+    /// reencontrar quem nao tem documento — a maioria em campo — nas visitas
+    /// seguintes, inclusive em outra base.
+    /// </summary>
+    public string Codigo { get; set; } = string.Empty;
+
     public string Nome { get; set; } = string.Empty;
     public TipoDocumento TipoDocumento { get; set; } = TipoDocumento.SemDocumento;
     public string? NumeroDocumento { get; set; }

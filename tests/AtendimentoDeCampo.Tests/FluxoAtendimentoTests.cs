@@ -170,6 +170,13 @@ public class FluxoAtendimentoTests
         return client;
     }
 
+    /// <summary>Codigo livre para o paciente, como a tela faz antes de cadastrar.</summary>
+    private static async Task<string> CodigoNovoAsync(HttpClient client)
+    {
+        var resposta = await client.GetFromJsonAsync<CodigoNovoDto>("/api/pacientes/codigo-novo", Json);
+        return resposta!.Codigo;
+    }
+
     private async Task<Guid> PrimeiraBaseAsync(HttpClient client)
     {
         var bases = await client.GetFromJsonAsync<List<BaseDto>>("/api/bases", Json);
@@ -205,6 +212,7 @@ public class FluxoAtendimentoTests
             precisaoMetros = 14.0,
             paciente = new
             {
+                codigo = await CodigoNovoAsync(client),
                 nome = "Yesenia Teste",
                 tipoDocumento = "CedulaIdentidade",
                 numeroDocumento = "14140742",
@@ -331,6 +339,7 @@ public class FluxoAtendimentoTests
             baseId,
             paciente = new
             {
+                codigo = await CodigoNovoAsync(client),
                 nome = "Paciente Alergico",
                 tipoDocumento = "SemDocumento",
                 idadeAproximada = 40,
@@ -361,6 +370,7 @@ public class FluxoAtendimentoTests
             baseId,
             paciente = new
             {
+                codigo = await CodigoNovoAsync(client),
                 nome = "Paciente Incoerente",
                 tipoDocumento = "SemDocumento",
                 idadeAproximada = 30,
@@ -387,6 +397,7 @@ public class FluxoAtendimentoTests
             baseId,
             paciente = new
             {
+                codigo = await CodigoNovoAsync(client),
                 nome = "Sem Consentimento",
                 tipoDocumento = "SemDocumento",
                 idadeAproximada = 20,
@@ -703,6 +714,7 @@ public class FluxoAtendimentoTests
                 baseId,
                 paciente = new
                 {
+                    codigo = await CodigoNovoAsync(client),
                     nome = "Paciente Recorrente",
                     tipoDocumento = "Passaporte",
                     numeroDocumento = "PA-998877",
@@ -732,6 +744,7 @@ public class FluxoAtendimentoTests
             baseId,
             paciente = new
             {
+                codigo = await CodigoNovoAsync(client),
                 nome,
                 tipoDocumento = "SemDocumento",
                 idadeAproximada = 30,

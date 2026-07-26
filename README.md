@@ -256,6 +256,8 @@ clínico não decide no lugar de quem está com o paciente na frente.
 | `POST` | `/api/profissionais/{id}/desativar` | Revoga acesso (administrador) |
 | `POST` | `/api/profissionais/{id}/administrador` | Concede ou remove administração |
 | `GET` | `/api/bases` | Bases ativas |
+| `GET` | `/api/pacientes/codigo-novo` | Sorteia um código livre, sem gravar nada |
+| `GET` | `/api/pacientes/codigo/{codigo}` | Reencontra o paciente pelo código dele ou de um atendimento |
 | `GET` | `/api/atendimentos` | Lista por base, fila, risco e busca |
 | `GET` | `/api/atendimentos/{id}` | Prontuário completo |
 | `GET` | `/api/atendimentos/codigo/{codigo}` | Busca pelo código curto |
@@ -269,8 +271,33 @@ clínico não decide no lugar de quem está com o paciente na frente.
 | `GET` | `/api/catalogo/itens` | Catálogo de medicamentos e insumos |
 | `GET` | `/api/catalogo/cid10` | Catálogo CID-10 |
 
-## Código do atendimento
+## Os dois códigos
 
-Formato `PRE-XXXX`, ex.: `ACA-4K7Z`. O prefixo identifica a base e usa A–Z
-inteiro para continuar reconhecível. O sufixo é sorteado e usa um alfabeto sem
-`I`, `O`, `S`, `0`, `1` e `5`, porque é lido em voz alta e anotado à mão na fila.
+**Código do atendimento** — formato `PRE-XXXX`, ex.: `ACA-4K7Z`. Identifica uma
+visita. O prefixo identifica a base e usa A–Z inteiro para continuar
+reconhecível.
+
+**Código do paciente** — formato `XXXX-XXXX`, ex.: `4K7Z-2YAP`. Identifica a
+pessoa, e é o que ela leva anotada. Sem documento, é o único jeito de reencontrar
+alguém na visita seguinte — e em campo a maioria não tem documento.
+
+Os dois sorteiam de um alfabeto sem `I`, `O`, `S`, `0`, `1` e `5`: são lidos em
+voz alta e copiados à mão num papel que pode passar semanas no bolso.
+
+Os formatos são deliberadamente diferentes porque os dois circulam na mesma fila
+e alguém vai digitar um no lugar do outro. `/api/pacientes/codigo/{codigo}`
+aceita os dois e chega na mesma pessoa, em vez de responder "não encontrado".
+
+### O código nasce antes do cadastro
+
+`GET /api/pacientes/codigo-novo` sorteia um código livre e **não grava nada**. O
+cadastro só nasce quando o formulário é salvo, já com o consentimento marcado —
+um código sorteado e abandonado não deixa rastro. A unicidade de verdade é o
+índice único em `pacientes."Codigo"`; a consulta do sorteio não protege contra
+dois cadastros entrando no mesmo instante.
+
+Na criação do atendimento o código vem primeiro na identificação do paciente, e
+o documento fica como segunda via: quem perdeu o papel e voltou com a cédula na
+mão não pode virar um cadastro novo. Quando o documento reencontra um cadastro
+que já tem outro código, o código antigo prevalece — é o que está escrito no
+papel de quem voltou.
