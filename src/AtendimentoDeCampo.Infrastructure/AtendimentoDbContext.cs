@@ -80,6 +80,7 @@ public class AtendimentoDbContext : DbContext
         b.Entity<Paciente>(e =>
         {
             e.ToTable("pacientes");
+            e.Property(x => x.Codigo).IsRequired().HasMaxLength(9);
             e.Property(x => x.Nome).IsRequired().HasMaxLength(200);
             e.Property(x => x.NumeroDocumento).HasMaxLength(60);
             e.Property(x => x.Alergias).HasMaxLength(500);
@@ -89,6 +90,9 @@ public class AtendimentoDbContext : DbContext
             AplicarListaEnum<Paciente, Vulnerabilidade>(e, x => x.Vulnerabilidades);
 
             e.HasIndex(x => x.Nome);
+
+            // O codigo e o que o paciente carrega no bolso: precisa achar um so.
+            e.HasIndex(x => x.Codigo).IsUnique();
 
             // Documento identifica o paciente quando existe. Pacientes sem
             // documento sao comuns em campo, e o indice parcial permite varios

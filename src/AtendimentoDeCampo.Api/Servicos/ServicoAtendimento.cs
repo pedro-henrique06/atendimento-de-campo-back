@@ -104,11 +104,16 @@ public sealed class ServicoAtendimento
 
     private async Task<Paciente> ResolverPacienteAsync(DadosPacienteRequest dados, CancellationToken ct)
     {
-        Paciente? paciente = null;
+        var codigo = GeradorCodigoPaciente.Normalizar(dados.Codigo)
+            ?? throw new RegraDeNegocioException("Codigo do paciente invalido.");
 
-        // Paciente com documento pode estar retornando; reaproveitar o cadastro
-        // preserva o historico entre atendimentos.
-        if (!string.IsNullOrWhiteSpace(dados.NumeroDocumento))
+        // O codigo vem primeiro: e o unico identificador que existe para quem
+        // nao tem documento, e e o que a pessoa carrega anotado.
+        var paciente = await _db.Pacientes.FirstOrDefaultAsync(p => p.Codigo == codigo, ct);
+
+        // Documento tambem reencontra o cadastro: quem perdeu o papel com o
+        // codigo e voltou com a cedula na mao nao pode virar um cadastro novo.
+        if (paciente is null && !string.IsNullOrWhiteSpace(dados.NumeroDocumento))
         {
             paciente = await _db.Pacientes.FirstOrDefaultAsync(
                 p => p.TipoDocumento == dados.TipoDocumento &&
@@ -118,8 +123,19 @@ public sealed class ServicoAtendimento
 
         if (paciente is null)
         {
-            paciente = new Paciente();
+            // Chega aqui com o codigo que a tela sorteou e ninguem usou ainda.
+            // Quem garante a unicidade de verdade e o indice unico: a consulta
+            // acima nao protege contra outro cadastro entrando no mesmo
+            // instante.
+            paciente = new Paciente { Codigo = codigo };
             _db.Pacientes.Add(paciente);
+        }
+        else if (paciente.Codigo != codigo)
+        {
+            // Encontrado pelo documento, com outro codigo ja no cadastro. O
+            // codigo antigo prevalece: e o que esta anotado no papel de quem
+            // voltou, e trocar invalidaria o papel.
+            codigo = paciente.Codigo;
         }
 
         paciente.Nome = dados.Nome.Trim();
@@ -139,6 +155,73 @@ public sealed class ServicoAtendimento
         paciente.AtualizadoEm = DateTime.UtcNow;
 
         return paciente;
+    }
+
+    /// <summary>
+    /// Sorteia um codigo de paciente ainda livre. Nao grava nada: o cadastro so
+    /// nasce quando a tela e salva, ja com o consentimento marcado. Codigo
+    /// sorteado e abandonado nao deixa rastro nenhum.
+    /// </summary>
+    public async Task<string> GerarCodigoPacienteUnicoAsync(CancellationToken ct = default)
+    {
+        for (var tentativa = 0; tentativa < 10; tentativa++)
+        {
+            var codigo = GeradorCodigoPaciente.Gerar();
+
+            if (!await _db.Pacientes.AnyAsync(p => p.Codigo == codigo, ct))
+            {
+                return codigo;
+            }
+        }
+
+        throw new RegraDeNegocioException(
+            "Nao foi possivel gerar um codigo unico para o paciente. Tente novamente.");
+    }
+
+    /// <summary>
+    /// Procura um paciente ja cadastrado. Aceita o codigo do paciente e tambem o
+    /// codigo de um atendimento dele: os dois circulam na mesma fila, e quem
+    /// digita o de atendimento por engano quer chegar na mesma pessoa —
+    /// responder "nao encontrado" ali seria implicancia.
+    /// </summary>
+    public async Task<PacienteConhecidoDto?> ObterPacientePorCodigoAsync(
+        string codigo,
+        CancellationToken ct = default)
+    {
+        var normalizado = GeradorCodigoPaciente.Normalizar(codigo);
+
+        var paciente = normalizado is null
+            ? null
+            : await _db.Pacientes.AsNoTracking().FirstOrDefaultAsync(p => p.Codigo == normalizado, ct);
+
+        if (paciente is null)
+        {
+            var doAtendimento = (codigo ?? string.Empty).Trim().ToUpperInvariant();
+
+            paciente = await _db.Atendimentos
+                .AsNoTracking()
+                .Where(a => a.Codigo == doAtendimento)
+                .Select(a => a.Paciente!)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        if (paciente is null)
+        {
+            return null;
+        }
+
+        var visitas = await _db.Atendimentos
+            .AsNoTracking()
+            .Where(a => a.PacienteId == paciente.Id)
+            .OrderByDescending(a => a.CriadoEm)
+            .Select(a => new { a.CriadoEm, Base = a.Base!.Nome })
+            .ToListAsync(ct);
+
+        return new PacienteConhecidoDto(
+            Mapeadores.ParaDto(paciente),
+            visitas.Count,
+            visitas.FirstOrDefault()?.CriadoEm,
+            visitas.FirstOrDefault()?.Base);
     }
 
     private async Task<string> GerarCodigoUnicoAsync(string prefixo, CancellationToken ct)

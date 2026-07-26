@@ -90,6 +90,14 @@ public sealed record BaseDto(Guid Id, string Nome, string PrefixoCodigo, bool At
 
 public sealed record DadosPacienteRequest
 {
+    /// <summary>
+    /// Codigo do paciente. Vem da tela: ou foi gerado agora para quem chega pela
+    /// primeira vez, ou foi digitado por quem ja tinha um. E o que liga a visita
+    /// de hoje ao cadastro de antes quando nao ha documento.
+    /// </summary>
+    [Required, MaxLength(9)]
+    public string Codigo { get; init; } = string.Empty;
+
     [Required, MaxLength(200)]
     public string Nome { get; init; } = string.Empty;
 
@@ -135,8 +143,22 @@ public sealed record CriarAtendimentoRequest
 
 public sealed record AlertaAlergiaDto(bool Exibir, string? Texto);
 
+/// <summary>Codigo recem-sorteado, ainda nao gravado: so vira cadastro se a tela for salva.</summary>
+public sealed record CodigoNovoDto(string Codigo);
+
+/// <summary>
+/// O que a tela mostra antes de reabrir um paciente conhecido: o suficiente para
+/// a equipe confirmar que e a pessoa certa, sem despejar o prontuario inteiro.
+/// </summary>
+public sealed record PacienteConhecidoDto(
+    PacienteDto Paciente,
+    int TotalAtendimentos,
+    DateTime? UltimoAtendimentoEm,
+    string? UltimaBase);
+
 public sealed record PacienteDto(
     Guid Id,
+    string Codigo,
     string Nome,
     TipoDocumento TipoDocumento,
     string? NumeroDocumento,

@@ -14,6 +14,7 @@ public static class Mapeadores
 
         return new PacienteDto(
             p.Id,
+            p.Codigo,
             p.Nome,
             p.TipoDocumento,
             p.NumeroDocumento,
