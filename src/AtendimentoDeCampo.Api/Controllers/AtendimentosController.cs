@@ -29,6 +29,8 @@ public class AtendimentosController : ControllerBase
         }
     }
 
+    private bool EhAdministrador => User.IsInRole(Papeis.Administrador);
+
     /// <summary>Lista atendimentos da base, com filtro por fila, risco e busca livre.</summary>
     [HttpGet]
     public async Task<ActionResult<List<AtendimentoResumoDto>>> Listar(
@@ -36,8 +38,34 @@ public class AtendimentosController : ControllerBase
         [FromQuery] Especialidade? fila,
         [FromQuery] ClassificacaoRisco? risco,
         [FromQuery] string? busca,
+        [FromQuery] bool meus,
+        [FromQuery] bool ocultarAssumidos,
         CancellationToken ct)
-        => Ok(await _servico.ListarAsync(baseId, fila, risco, busca, ct));
+        => Ok(await _servico.ListarAsync(
+            baseId,
+            fila,
+            risco,
+            busca,
+            meus ? ProfissionalId : null,
+            ocultarAssumidos,
+            ProfissionalId,
+            ct));
+
+    /// <summary>Assume a etapa: ela sai da fila de quem esta livre.</summary>
+    [HttpPost("{id:guid}/etapas/{especialidade}/assumir")]
+    public async Task<ActionResult<AtendimentoResumoDto>> Assumir(
+        Guid id,
+        Especialidade especialidade,
+        CancellationToken ct)
+        => Ok(await _servico.AssumirEtapaAsync(id, especialidade, ProfissionalId, ct));
+
+    /// <summary>Devolve a etapa para a fila.</summary>
+    [HttpPost("{id:guid}/etapas/{especialidade}/liberar")]
+    public async Task<ActionResult<AtendimentoResumoDto>> Liberar(
+        Guid id,
+        Especialidade especialidade,
+        CancellationToken ct)
+        => Ok(await _servico.LiberarEtapaAsync(id, especialidade, ProfissionalId, EhAdministrador, ct));
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ProntuarioDto>> Obter(Guid id, CancellationToken ct)

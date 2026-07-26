@@ -234,6 +234,33 @@ cargo (Médico, Psicólogo, Enfermagem) num único campo "área", o que impedia
 qualquer leitura confiável de produção. Aqui são dois eixos independentes:
 `Especialidade` (a fila) e `FuncaoProfissional` (quem atendeu).
 
+## Fila do profissional
+
+`FilasDaFuncao` diz em que filas cada função trabalha, e a primeira da lista é a
+que a tela abre por padrão. **Não é permissão.** Em campo a equipe é curta e as
+funções se cobrem — médico tria quando a fila estoura, enfermeiro acompanha uma
+consulta. Trancar aqui atrapalharia o atendimento sem proteger nada, já que quem
+entrou no sistema foi aprovado pela coordenação. "Todas as filas" continua
+disponível para todo mundo.
+
+### Assumir
+
+`Etapa.ProfissionalId` deixa de ser só o registro de quem atendeu e passa a
+marcar quem **está** atendendo. Assumida, a etapa sai da fila de quem está livre
+(`ocultarAssumidos=true`) e a segunda tentativa é recusada dizendo com quem o
+paciente está — sem o nome, ninguém sabe a quem perguntar.
+
+Reassumir o que já é seu não é erro: acontece quando a tela recarrega.
+
+Liberar devolve para a fila. Quem assumiu pode liberar, e **a coordenação pode
+liberar a de qualquer um**: em campo alguém assume e sai para outra emergência,
+e sem essa saída o paciente ficaria preso numa fila que mais ninguém enxerga.
+
+O parâmetro `euId` da listagem é sempre quem está perguntando, separado de
+`assumidosPor`. Reaproveitar `assumidosPor` no filtro escondia o atendimento de
+quem acabara de assumi-lo, porque fora de "Meus" ele é nulo e a comparação virava
+"esconda tudo que está assumido".
+
 ## Protocolo START
 
 `ProtocoloStart.Avaliar` implementa o algoritmo (deambulação → respiração →
@@ -266,6 +293,8 @@ clínico não decide no lugar de quem está com o paciente na frente.
 | `GET` | `/api/atendimentos` | Lista por base, fila, risco e busca |
 | `GET` | `/api/atendimentos/{id}` | Prontuário completo |
 | `GET` | `/api/atendimentos/codigo/{codigo}` | Busca pelo código curto |
+| `POST` | `/api/atendimentos/{id}/etapas/{especialidade}/assumir` | Assume a etapa |
+| `POST` | `/api/atendimentos/{id}/etapas/{especialidade}/liberar` | Devolve para a fila |
 | `POST` | `/api/atendimentos` | Cadastro do paciente + abertura |
 | `PUT` | `/api/atendimentos/{id}/triagem` | Triagem e classificação START |
 | `PUT` | `/api/atendimentos/{id}/consulta` | Consulta médica / pediatria / ortopedia / saúde mental |

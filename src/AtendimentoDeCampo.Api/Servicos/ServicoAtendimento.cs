@@ -682,6 +682,9 @@ public sealed class ServicoAtendimento
         Especialidade? fila,
         ClassificacaoRisco? risco,
         string? busca,
+        Guid? assumidosPor = null,
+        bool ocultarAssumidosPorOutros = false,
+        Guid? euId = null,
         CancellationToken ct = default)
     {
         var query = _db.Atendimentos
@@ -701,6 +704,31 @@ public sealed class ServicoAtendimento
                 e => e.Especialidade == fila && e.Status != StatusEtapa.Concluida));
         }
 
+        // "Meus atendimentos": o que esta pessoa assumiu e ainda nao concluiu.
+        if (assumidosPor is not null)
+        {
+            query = query.Where(a => a.Etapas.Any(
+                e => e.ProfissionalId == assumidosPor && e.Status != StatusEtapa.Concluida));
+        }
+
+        /*
+            A fila de quem esta livre nao mostra o que ja esta na mao de outra
+            pessoa — e disso que serve assumir.
+
+            `euId` e quem esta perguntando, e vem sempre, independente de
+            `assumidosPor`. Usar `assumidosPor` aqui escondia o atendimento de
+            quem acabou de assumi-lo: fora de "Meus" ele e nulo, e a comparacao
+            virava "esconda tudo que esta assumido".
+        */
+        if (ocultarAssumidosPorOutros && fila is not null)
+        {
+            query = query.Where(a => !a.Etapas.Any(
+                e => e.Especialidade == fila &&
+                     e.Status != StatusEtapa.Concluida &&
+                     e.ProfissionalId != null &&
+                     e.ProfissionalId != euId));
+        }
+
         if (!string.IsNullOrWhiteSpace(busca))
         {
             var termo = busca.Trim();
@@ -716,6 +744,116 @@ public sealed class ServicoAtendimento
             .ToListAsync(ct);
 
         return atendimentos.Select(Mapeadores.ParaResumo).ToList();
+    }
+
+    // -----------------------------------------------------------------------
+    // Assumir e liberar
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Assume a etapa: ela sai da fila de quem esta livre e passa a aparecer
+    /// como "em atendimento com <fulano>".
+    ///
+    /// Sem isto, dois profissionais abrem o mesmo paciente ao mesmo tempo e
+    /// nenhum dos dois sabe — com a fila cheia isso acontece, e o segundo so
+    /// descobre quando vai salvar por cima do primeiro.
+    /// </summary>
+    public async Task<AtendimentoResumoDto> AssumirEtapaAsync(
+        Guid atendimentoId,
+        Especialidade especialidade,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarComEtapasAsync(atendimentoId, ct);
+        var etapa = EtapaAberta(atendimento, especialidade);
+
+        if (etapa.ProfissionalId == profissionalId)
+        {
+            // Ja e dele. Reassumir nao e erro: acontece quando a tela recarrega.
+            return Mapeadores.ParaResumo(atendimento);
+        }
+
+        if (etapa.ProfissionalId is not null)
+        {
+            var dono = await _db.Profissionais
+                .AsNoTracking()
+                .Where(p => p.Id == etapa.ProfissionalId)
+                .Select(p => p.Nome)
+                .FirstOrDefaultAsync(ct);
+
+            throw new RegraDeNegocioException(
+                $"Este atendimento ja esta com {dono ?? "outro profissional"}.");
+        }
+
+        etapa.ProfissionalId = profissionalId;
+        etapa.Status = StatusEtapa.EmAndamento;
+        etapa.IniciadaEm ??= DateTime.UtcNow;
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.AssumiuEtapa, especialidade, ct);
+
+        await _db.SaveChangesAsync(ct);
+
+        return Mapeadores.ParaResumo(atendimento);
+    }
+
+    /// <summary>
+    /// Devolve a etapa para a fila.
+    ///
+    /// Quem assumiu pode liberar; a coordenacao pode liberar a de qualquer um,
+    /// porque em campo alguem assume e sai para outra emergencia, e sem essa
+    /// saida o paciente ficaria preso numa fila que ninguem mais ve.
+    /// </summary>
+    public async Task<AtendimentoResumoDto> LiberarEtapaAsync(
+        Guid atendimentoId,
+        Especialidade especialidade,
+        Guid profissionalId,
+        bool ehAdministrador,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarComEtapasAsync(atendimentoId, ct);
+        var etapa = EtapaAberta(atendimento, especialidade);
+
+        if (etapa.ProfissionalId is null)
+        {
+            return Mapeadores.ParaResumo(atendimento);
+        }
+
+        if (etapa.ProfissionalId != profissionalId && !ehAdministrador)
+        {
+            throw new RegraDeNegocioException(
+                "Somente quem assumiu, ou a coordenacao, pode devolver o atendimento para a fila.");
+        }
+
+        etapa.ProfissionalId = null;
+        etapa.Status = StatusEtapa.Aguardando;
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.LiberouEtapa, especialidade, ct);
+
+        await _db.SaveChangesAsync(ct);
+
+        return Mapeadores.ParaResumo(atendimento);
+    }
+
+    private async Task<Atendimento> CarregarComEtapasAsync(Guid id, CancellationToken ct)
+        => await _db.Atendimentos
+            .Include(a => a.Paciente)
+            .Include(a => a.Etapas).ThenInclude(e => e.Profissional)
+            .FirstOrDefaultAsync(a => a.Id == id, ct)
+            ?? throw new RegraDeNegocioException("Atendimento nao encontrado.");
+
+    private static Etapa EtapaAberta(Atendimento atendimento, Especialidade especialidade)
+    {
+        var etapa = atendimento.Etapas.FirstOrDefault(e => e.Especialidade == especialidade)
+            ?? throw new RegraDeNegocioException("Este atendimento nao passou por esta fila.");
+
+        if (etapa.Status == StatusEtapa.Concluida)
+        {
+            throw new RegraDeNegocioException("Esta etapa ja foi concluida.");
+        }
+
+        return etapa;
     }
 
     public async Task<ProntuarioDto> ObterProntuarioAsync(Guid id, CancellationToken ct = default)

@@ -63,7 +63,13 @@ public sealed record ProfissionalDto(
     StatusConta Status,
     bool EhAdministrador,
     string? MotivoRecusa,
-    DateTime CriadoEm);
+    DateTime CriadoEm,
+    /// <summary>
+    /// Filas que interessam a esta funcao, na ordem em que a tela deve
+    /// oferece-las. A primeira e a que abre por padrao. Nao e permissao: a
+    /// pessoa continua podendo ver "Todas".
+    /// </summary>
+    List<Especialidade> Filas);
 
 public sealed record RecusarContaRequest
 {
