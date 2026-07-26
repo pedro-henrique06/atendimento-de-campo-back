@@ -256,6 +256,11 @@ clínico não decide no lugar de quem está com o paciente na frente.
 | `POST` | `/api/profissionais/{id}/desativar` | Revoga acesso (administrador) |
 | `POST` | `/api/profissionais/{id}/administrador` | Concede ou remove administração |
 | `GET` | `/api/bases` | Bases ativas |
+| `GET` | `/api/bases/todas` | Todas, inclusive inativas (administrador) |
+| `GET` | `/api/bases/prefixo-sugerido` | Prefixo livre derivado do nome (administrador) |
+| `POST` | `/api/bases` | Cria base (administrador) |
+| `PUT` | `/api/bases/{id}` | Renomeia; prefixo só antes do primeiro atendimento |
+| `POST` | `/api/bases/{id}/ativa` | Ativa ou desativa (administrador) |
 | `GET` | `/api/pacientes/codigo-novo` | Sorteia um código livre, sem gravar nada |
 | `GET` | `/api/pacientes/codigo/{codigo}` | Reencontra o paciente pelo código dele ou de um atendimento |
 | `GET` | `/api/atendimentos` | Lista por base, fila, risco e busca |
@@ -287,6 +292,23 @@ voz alta e copiados à mão num papel que pode passar semanas no bolso.
 Os formatos são deliberadamente diferentes porque os dois circulam na mesma fila
 e alguém vai digitar um no lugar do outro. `/api/pacientes/codigo/{codigo}`
 aceita os dois e chega na mesma pessoa, em vez de responder "não encontrado".
+
+### Cadastro de bases
+
+O prefixo entra no código de cada atendimento aberto na base (`ACA-4K7Z`). Depois
+que o primeiro atendimento sai, ele está impresso em papéis que a equipe já
+distribuiu — trocá-lo faria o papel dizer uma base e o sistema dizer outra. Por
+isso **o prefixo só é editável enquanto a base não tem atendimento nenhum**. O
+nome continua livre para sempre.
+
+**Base não se apaga, se desativa.** O histórico dos atendimentos aponta para ela,
+e apagar levaria junto o registro de onde cada pessoa foi atendida. Duas recusas
+protegem a operação:
+
+- desativar base com atendimento **em aberto** — a seleção só lista bases ativas,
+  então isso sumiria com gente que ainda está na fila, sem caminho de volta;
+- desativar a **única** base ativa — sem base ativa ninguém escolhe base, e sem
+  base escolhida o app inteiro para, inclusive a tela de gestão.
 
 ### O código nasce antes do cadastro
 

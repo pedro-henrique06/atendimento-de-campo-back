@@ -84,6 +84,38 @@ public sealed record UsuarioDisponivelResponse(string Usuario, bool Disponivel);
 
 public sealed record BaseDto(Guid Id, string Nome, string PrefixoCodigo, bool Ativa);
 
+/// <summary>
+/// A base como a coordenacao a ve: com o que ela precisa para decidir. O total
+/// de atendimentos explica por que o prefixo travou, e os abertos explicam por
+/// que a desativacao foi recusada.
+/// </summary>
+public sealed record BaseAdminDto(
+    Guid Id,
+    string Nome,
+    string PrefixoCodigo,
+    bool Ativa,
+    DateTime CriadaEm,
+    int TotalAtendimentos,
+    int AtendimentosAbertos,
+    bool PrefixoEditavel);
+
+public sealed record SalvarBaseRequest
+{
+    [Required, MaxLength(160)]
+    public string Nome { get; init; } = string.Empty;
+
+    /// <summary>Vazio deriva do nome, que e o que a tela ja sugere.</summary>
+    [MaxLength(3)]
+    public string? PrefixoCodigo { get; init; }
+}
+
+public sealed record DefinirAtivaRequest
+{
+    public bool Ativa { get; init; }
+}
+
+public sealed record PrefixoSugeridoDto(string Prefixo);
+
 // ---------------------------------------------------------------------------
 // Paciente e atendimento
 // ---------------------------------------------------------------------------
