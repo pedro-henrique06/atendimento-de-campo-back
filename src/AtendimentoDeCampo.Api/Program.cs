@@ -40,6 +40,7 @@ builder.Services.AddDbContext<AtendimentoDbContext>((sp, opt) =>
 builder.Services.AddScoped<RegistradorAuditoria>();
 builder.Services.AddScoped<ServicoAtendimento>();
 builder.Services.AddScoped<ServicoAutenticacao>();
+builder.Services.AddScoped<ServicoBases>();
 builder.Services.AddScoped<ServicoProfissionais>();
 
 builder.Services
