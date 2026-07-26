@@ -284,6 +284,22 @@ public enum ProcedimentoEnfermagem
     Outro = 8
 }
 
+/// <summary>
+/// Situacao da conta do profissional.
+///
+/// Toda conta nasce em <see cref="Pendente"/>: quem se registra nao tem acesso
+/// nenhum ate a coordenacao aprovar. Num prontuario isso importa mais que
+/// conveniencia — o registro de ato clinico fica atribuido a uma pessoa, e a
+/// aprovacao e onde alguem confirma que essa pessoa e quem diz ser.
+/// </summary>
+public enum StatusConta
+{
+    Pendente = 0,
+    Ativa = 1,
+    Recusada = 2,
+    Desativada = 3
+}
+
 public enum AcaoAuditoria
 {
     CriouAtendimento = 0,

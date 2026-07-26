@@ -57,11 +57,21 @@ public class AtendimentoDbContext : DbContext
             e.Property(x => x.Nome).IsRequired().HasMaxLength(160);
             e.Property(x => x.Registro).HasMaxLength(40);
             e.Property(x => x.SenhaHash).IsRequired();
+            e.Property(x => x.Usuario).IsRequired().HasMaxLength(40);
+            e.Property(x => x.Email).HasMaxLength(200);
+            e.Property(x => x.MotivoRecusa).HasMaxLength(300);
 
-            // Identidade do profissional em campo: nome + funcao. O login pede
-            // exatamente esses dois campos, entao a unicidade precisa bater.
-            e.HasIndex(x => new { x.Nome, x.Funcao }).IsUnique();
-            e.HasIndex(x => x.Ativo);
+            // O usuario e a identidade de login, e a unica coisa unica aqui.
+            // Antes a chave era nome + funcao, o que impedia duas pessoas
+            // homonimas na mesma funcao de terem conta.
+            e.HasIndex(x => x.Usuario).IsUnique();
+            e.HasIndex(x => x.Status);
+
+            // Quem revisou a conta e outro profissional; auto-referencia.
+            e.HasOne(x => x.RevisadoPor)
+                .WithMany()
+                .HasForeignKey(x => x.RevisadoPorId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

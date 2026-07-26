@@ -40,6 +40,7 @@ builder.Services.AddDbContext<AtendimentoDbContext>((sp, opt) =>
 builder.Services.AddScoped<RegistradorAuditoria>();
 builder.Services.AddScoped<ServicoAtendimento>();
 builder.Services.AddScoped<ServicoAutenticacao>();
+builder.Services.AddScoped<ServicoProfissionais>();
 
 builder.Services
     .AddControllers()
@@ -113,6 +114,7 @@ if (builder.Configuration.GetValue("Banco:MigrarNoBoot", true))
         {
             await db.Database.MigrateAsync();
             await Seed.ExecutarAsync(db);
+            await AdministradorInicial.GarantirAsync(db, builder.Configuration, log);
             break;
         }
         catch (Exception erro) when (tentativa < tentativas)

@@ -9,10 +9,18 @@ using AtendimentoDeCampo.Infrastructure;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using AtendimentoDeCampo.Api.Servicos;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 
 namespace AtendimentoDeCampo.Tests;
+
+// Nome da colecao compartilhada pelos testes que sobem a API.
+public static class Colecoes
+{
+    public const string Api = "api";
+}
 
 /// <summary>
 /// Sobe a API contra o Postgres de teste. A connection string vem de
@@ -26,6 +34,9 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 
     public static bool BancoDisponivel => !string.IsNullOrWhiteSpace(ConnectionString);
 
+    public const string AdminUsuario = "admin.teste";
+    public const string AdminSenha = "senha-do-administrador";
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -38,7 +49,9 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
                 ["Jwt:Chave"] = "chave-de-teste-com-mais-de-32-caracteres-para-hmac",
                 ["Jwt:Emissor"] = "atendimento-de-campo",
                 ["Jwt:Audiencia"] = "atendimento-de-campo-app",
-                ["Auth:SenhaEquipe"] = "Voluntario",
+                ["Admin:Usuario"] = AdminUsuario,
+                ["Admin:Senha"] = AdminSenha,
+                ["Admin:Nome"] = "Administrador de Teste",
                 ["Banco:MigrarNoBoot"] = "true"
             });
         });
@@ -57,12 +70,27 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
         await db.Database.EnsureDeletedAsync();
         await db.Database.MigrateAsync();
         await Seed.ExecutarAsync(db);
+
+        await AdministradorInicial.GarantirAsync(
+            db,
+            Services.GetRequiredService<IConfiguration>(),
+            Services.GetRequiredService<ILogger<ApiFixture>>());
     }
 
     async Task IAsyncLifetime.DisposeAsync() => await Task.CompletedTask;
 }
 
-public class FluxoAtendimentoTests : IClassFixture<ApiFixture>
+/// <summary>
+/// A fixture apaga e recria o banco ao iniciar. Com IClassFixture cada classe
+/// de teste ganharia a sua propria instancia, e uma limparia o banco no meio da
+/// execucao da outra. A colecao garante uma unica instancia compartilhada, e o
+/// xUnit passa a rodar as classes dela em serie.
+/// </summary>
+[CollectionDefinition(Colecoes.Api)]
+public sealed class ColecaoApi : ICollectionFixture<ApiFixture>;
+
+[Collection(Colecoes.Api)]
+public class FluxoAtendimentoTests
 {
     private readonly ApiFixture _fixture;
 
@@ -73,19 +101,64 @@ public class FluxoAtendimentoTests : IClassFixture<ApiFixture>
 
     public FluxoAtendimentoTests(ApiFixture fixture) => _fixture = fixture;
 
-    private async Task<HttpClient> AutenticarAsync(
-        string nome = "Claudia Candido da Luz",
-        FuncaoProfissional funcao = FuncaoProfissional.Enfermeiro,
-        string registro = "52728")
+    /// <summary>Entra como o administrador inicial, criado a partir da configuracao.</summary>
+    private async Task<HttpClient> AutenticarAdministradorAsync()
     {
         var client = _fixture.CreateClient();
 
         var resposta = await client.PostAsJsonAsync("/api/auth/login", new
         {
+            usuario = ApiFixture.AdminUsuario,
+            senha = ApiFixture.AdminSenha,
+            idioma = "Pt"
+        }, Json);
+
+        resposta.EnsureSuccessStatusCode();
+
+        var login = await resposta.Content.ReadFromJsonAsync<LoginResponse>(Json);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
+
+        return client;
+    }
+
+    /// <summary>
+    /// Registra a conta, aprova pelo administrador e entra. E o caminho completo
+    /// que qualquer profissional percorre antes de conseguir usar o sistema.
+    /// </summary>
+    private async Task<HttpClient> AutenticarAsync(
+        string usuario = "claudia.luz",
+        string nome = "Claudia Candido da Luz",
+        FuncaoProfissional funcao = FuncaoProfissional.Enfermeiro,
+        string registro = "52728")
+    {
+        var client = _fixture.CreateClient();
+        const string senha = "plantao-2026";
+
+        var registroResposta = await client.PostAsJsonAsync("/api/auth/registrar", new
+        {
+            usuario,
             nome,
             funcao = funcao.ToString(),
             registro,
-            senha = "Voluntario",
+            senha,
+            confirmacaoSenha = senha,
+            idioma = "Pt"
+        }, Json);
+
+        // Ja registrado por outro teste da suite: segue para a aprovacao.
+        if (registroResposta.IsSuccessStatusCode)
+        {
+            var criado = await registroResposta.Content.ReadFromJsonAsync<ProfissionalDto>(Json);
+
+            var admin = await AutenticarAdministradorAsync();
+            (await admin.PostAsJsonAsync($"/api/profissionais/{criado!.Id}/aprovar", new { }, Json))
+                .EnsureSuccessStatusCode();
+        }
+
+        var resposta = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            usuario,
+            senha,
             idioma = "Pt"
         }, Json);
 
@@ -101,49 +174,6 @@ public class FluxoAtendimentoTests : IClassFixture<ApiFixture>
     {
         var bases = await client.GetFromJsonAsync<List<BaseDto>>("/api/bases", Json);
         return bases!.First().Id;
-    }
-
-    [SkippableFact]
-    public async Task PrimeiroAcessoCriaAContaComASenhaDaEquipe()
-    {
-        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
-
-        var client = _fixture.CreateClient();
-
-        var resposta = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            nome = "Fabio Primeiro Acesso",
-            funcao = "Medico",
-            registro = "12345",
-            senha = "Voluntario",
-            idioma = "Pt"
-        }, Json);
-
-        resposta.EnsureSuccessStatusCode();
-        var login = await resposta.Content.ReadFromJsonAsync<LoginResponse>(Json);
-
-        Assert.True(login!.ContaCriadaAgora);
-        Assert.Equal(ConselhoTipo.Crm, login.Profissional.ConselhoTipo);
-        Assert.False(string.IsNullOrWhiteSpace(login.Token));
-    }
-
-    [SkippableFact]
-    public async Task SenhaErradaNaoAutentica()
-    {
-        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
-
-        var client = _fixture.CreateClient();
-
-        var resposta = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            nome = "Alguem",
-            funcao = "Medico",
-            registro = "1",
-            senha = "senha-errada",
-            idioma = "Pt"
-        }, Json);
-
-        Assert.Equal(HttpStatusCode.Unauthorized, resposta.StatusCode);
     }
 
     [SkippableFact]

@@ -7,14 +7,32 @@ namespace AtendimentoDeCampo.Api.Contratos;
 // Autenticacao
 // ---------------------------------------------------------------------------
 
-/// <summary>
-/// Login de campo: nome + funcao + registro do conselho + senha. No primeiro
-/// acesso a senha informada e a senha da equipe, e a conta e criada na hora.
-/// </summary>
+/// <summary>Login: usuario e senha.</summary>
 public sealed record LoginRequest
 {
+    [Required, MaxLength(40)]
+    public string Usuario { get; init; } = string.Empty;
+
+    [Required]
+    public string Senha { get; init; } = string.Empty;
+
+    public Idioma Idioma { get; init; } = Idioma.Pt;
+}
+
+/// <summary>
+/// Registro de nova conta. A conta nasce pendente e nao acessa nada ate um
+/// administrador aprovar.
+/// </summary>
+public sealed record RegistroRequest
+{
+    [Required, MaxLength(40)]
+    public string Usuario { get; init; } = string.Empty;
+
     [Required, MaxLength(160)]
     public string Nome { get; init; } = string.Empty;
+
+    [EmailAddress, MaxLength(200)]
+    public string? Email { get; init; }
 
     [Required]
     public FuncaoProfissional Funcao { get; init; }
@@ -22,25 +40,43 @@ public sealed record LoginRequest
     [MaxLength(40)]
     public string? Registro { get; init; }
 
-    [Required, MinLength(4)]
+    [Required]
     public string Senha { get; init; } = string.Empty;
+
+    [Required]
+    public string ConfirmacaoSenha { get; init; } = string.Empty;
 
     public Idioma Idioma { get; init; } = Idioma.Pt;
 }
 
-public sealed record LoginResponse(
-    string Token,
-    DateTime ExpiraEm,
-    ProfissionalDto Profissional,
-    bool ContaCriadaAgora);
+public sealed record LoginResponse(string Token, DateTime ExpiraEm, ProfissionalDto Profissional);
 
 public sealed record ProfissionalDto(
     Guid Id,
+    string Usuario,
     string Nome,
+    string? Email,
     FuncaoProfissional Funcao,
     ConselhoTipo ConselhoTipo,
     string? Registro,
-    Idioma Idioma);
+    Idioma Idioma,
+    StatusConta Status,
+    bool EhAdministrador,
+    string? MotivoRecusa,
+    DateTime CriadoEm);
+
+public sealed record RecusarContaRequest
+{
+    [Required, MaxLength(300)]
+    public string Motivo { get; init; } = string.Empty;
+}
+
+public sealed record DefinirAdministradorRequest
+{
+    public bool EhAdministrador { get; init; }
+}
+
+public sealed record UsuarioDisponivelResponse(string Usuario, bool Disponivel);
 
 // ---------------------------------------------------------------------------
 // Bases

@@ -20,13 +20,44 @@ public class Base
 public class Profissional
 {
     public Guid Id { get; set; } = Guid.NewGuid();
+
+    /// <summary>
+    /// Identificador de login, curto e unico.
+    ///
+    /// Substitui a identidade anterior por nome + funcao, que impedia duas
+    /// pessoas homonimas na mesma funcao de terem conta — a segunda simplesmente
+    /// nao conseguia se registrar — e obrigava a digitar o nome completo a cada
+    /// plantao, no celular, onde um caractere diferente criava outra conta.
+    /// </summary>
+    public string Usuario { get; set; } = string.Empty;
+
     public string Nome { get; set; } = string.Empty;
+
+    /// <summary>Opcional; usado apenas para contato e recuperacao de senha.</summary>
+    public string? Email { get; set; }
+
     public FuncaoProfissional Funcao { get; set; }
     public ConselhoTipo ConselhoTipo { get; set; } = ConselhoTipo.Nenhum;
     public string? Registro { get; set; }
     public string SenhaHash { get; set; } = string.Empty;
     public Idioma Idioma { get; set; } = Idioma.Pt;
-    public bool Ativo { get; set; } = true;
+
+    public StatusConta Status { get; set; } = StatusConta.Pendente;
+
+    /// <summary>
+    /// Pode aprovar contas. E um eixo proprio, e nao a funcao Coordenacao:
+    /// coordenar a operacao em campo e administrar acessos do sistema sao
+    /// responsabilidades diferentes, e nem sempre da mesma pessoa.
+    /// </summary>
+    public bool EhAdministrador { get; set; }
+
+    public Guid? RevisadoPorId { get; set; }
+    public Profissional? RevisadoPor { get; set; }
+    public DateTime? RevisadoEm { get; set; }
+
+    /// <summary>Preenchido quando a conta e recusada, para que a pessoa saiba o motivo.</summary>
+    public string? MotivoRecusa { get; set; }
+
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
 
     public ICollection<Etapa> Etapas { get; set; } = new List<Etapa>();

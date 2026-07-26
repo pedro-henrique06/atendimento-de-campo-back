@@ -60,7 +60,9 @@ mesmo projeto: não sai para a internet e não consome tráfego de egresso.
 | `Jwt__Chave` | segredo com **32+ caracteres** |
 | `Jwt__Emissor` | `atendimento-de-campo` |
 | `Jwt__Audiencia` | `atendimento-de-campo-app` |
-| `Auth__SenhaEquipe` | senha de primeiro acesso da equipe |
+| `Admin__Usuario` | usuário do administrador inicial |
+| `Admin__Senha` | senha do administrador inicial |
+| `Admin__Nome` | nome exibido do administrador |
 | `Cors__OrigensTexto` | URL do front, ex.: `https://seu-app.up.railway.app` |
 
 `PORT` é injetada pela plataforma; não defina à mão.
@@ -101,14 +103,55 @@ fora do ar fora de Development.
 | `AtendimentoDeCampo.Api` | Controllers, DTOs, autenticação JWT |
 | `AtendimentoDeCampo.Tests` | Testes de domínio e de integração ponta a ponta |
 
-## Autenticação
+## Contas e autenticação
 
-Login com **nome + função + registro do conselho + senha**. No primeiro acesso a
-senha informada é a senha da equipe (`Auth:SenhaEquipe`) e a conta é criada
-naquele momento. Como o login acontece antes da escolha da base, a senha da
-equipe é global.
+Registro e login são fluxos separados.
 
-Em produção, troque `Jwt:Chave` e `Auth:SenhaEquipe` por variáveis de ambiente.
+**Registro** (`POST /api/auth/registrar`) é aberto, mas a conta nasce
+`Pendente` e **não acessa nada** até um administrador aprovar. Num prontuário
+isso vale o atrito: cada ato clínico fica atribuído a uma pessoa, e a aprovação
+é o momento em que alguém confirma que essa pessoa é quem diz ser.
+
+**Login** (`POST /api/auth/login`) é por **usuário e senha**. O usuário é curto,
+único e normalizado — `Claudia.Luz` e `claudia.luz` são a mesma conta.
+
+O modelo anterior identificava o profissional por nome + função, com índice
+único. Duas pessoas homônimas na mesma função não conseguiam ter conta: a
+segunda simplesmente falhava ao se registrar.
+
+A resposta do login distingue os motivos da recusa:
+
+| Motivo | Significado |
+|---|---|
+| `CredenciaisInvalidas` | usuário não existe **ou** senha errada |
+| `ContaPendente` | aguardando aprovação |
+| `ContaRecusada` | recusada; vem com o motivo escrito pelo administrador |
+| `ContaDesativada` | acesso revogado |
+
+Usuário inexistente e senha errada compartilham a mesma resposta de propósito —
+é o único caso em que a distinção revelaria quem tem conta. Nos demais a pessoa
+já provou a senha, então explicar não vaza nada, e sem isso ela ficaria tentando
+de novo achando que errou.
+
+### Primeiro administrador
+
+Sem administrador o sistema nasce travado: toda conta fica pendente e não há
+ninguém para aprovar. Configure:
+
+```
+Admin__Usuario   = coordenacao
+Admin__Nome      = Coordenação de Campo
+Admin__Senha     = <senha forte>
+```
+
+**Não existe administrador padrão embutido.** Um usuário `admin` com senha
+conhecida num sistema público seria pior que o problema que resolve. Sem essas
+variáveis o boot apenas registra um aviso.
+
+Se a conta indicada já existir, ela é reativada e volta a ser administradora —
+mas a senha não é sobrescrita, para não atrapalhar quem já usa a conta.
+
+Em produção, defina `Jwt__Chave` e as variáveis `Admin__*` por ambiente.
 
 ## Decisões de modelagem
 
@@ -204,7 +247,14 @@ clínico não decide no lugar de quem está com o paciente na frente.
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `POST` | `/api/auth/login` | Login (cria conta no primeiro acesso) |
+| `POST` | `/api/auth/registrar` | Cria conta, pendente de aprovação |
+| `GET` | `/api/auth/usuario-disponivel` | Verifica se o usuário está livre |
+| `POST` | `/api/auth/login` | Login por usuário e senha |
+| `GET` | `/api/profissionais` | Lista contas (administrador) |
+| `POST` | `/api/profissionais/{id}/aprovar` | Aprova conta (administrador) |
+| `POST` | `/api/profissionais/{id}/recusar` | Recusa com motivo (administrador) |
+| `POST` | `/api/profissionais/{id}/desativar` | Revoga acesso (administrador) |
+| `POST` | `/api/profissionais/{id}/administrador` | Concede ou remove administração |
 | `GET` | `/api/bases` | Bases ativas |
 | `GET` | `/api/atendimentos` | Lista por base, fila, risco e busca |
 | `GET` | `/api/atendimentos/{id}` | Prontuário completo |

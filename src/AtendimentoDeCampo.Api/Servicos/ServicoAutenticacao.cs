@@ -3,22 +3,40 @@ using System.Security.Claims;
 using System.Text;
 using AtendimentoDeCampo.Api.Contratos;
 using AtendimentoDeCampo.Domain;
+using AtendimentoDeCampo.Domain.Servicos;
 using AtendimentoDeCampo.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
 namespace AtendimentoDeCampo.Api.Servicos;
 
-public sealed record ResultadoLogin(bool Sucesso, LoginResponse? Resposta, string? Erro);
+/// <summary>Motivo pelo qual um login foi recusado, para a tela poder explicar.</summary>
+public enum MotivoRecusaLogin
+{
+    CredenciaisInvalidas = 0,
+    ContaPendente = 1,
+    ContaRecusada = 2,
+    ContaDesativada = 3
+}
+
+public sealed record ResultadoLogin(
+    bool Sucesso,
+    LoginResponse? Resposta,
+    MotivoRecusaLogin? Motivo = null,
+    string? Detalhe = null);
 
 /// <summary>
-/// Autenticacao de campo.
+/// Autenticacao e registro.
 ///
-/// O fluxo espelha o do sistema de referencia: o profissional entra com nome,
-/// funcao, registro do conselho e senha. No primeiro acesso ele usa a senha da
-/// equipe, e a conta e criada naquele momento com essa mesma senha. Como o
-/// login acontece antes da escolha da base, a senha da equipe e global, vinda
-/// da configuracao.
+/// Os dois fluxos sao separados e explicitos. Antes eram o mesmo: se o nome nao
+/// existisse e a senha batesse com a da equipe, a conta era criada em silencio —
+/// o que fazia um erro de digitacao no nome virar uma conta nova em vez de um
+/// erro de login.
+///
+/// Agora quem se registra fica <see cref="StatusConta.Pendente"/> e nao acessa
+/// nada ate um administrador aprovar. Num prontuario isso vale o atrito: cada
+/// ato clinico fica atribuido a uma pessoa, e a aprovacao e o momento em que
+/// alguem confirma que essa pessoa e quem diz ser.
 /// </summary>
 public sealed class ServicoAutenticacao
 {
@@ -31,84 +49,130 @@ public sealed class ServicoAutenticacao
         _config = config;
     }
 
-    public async Task<ResultadoLogin> AutenticarAsync(LoginRequest req, CancellationToken ct = default)
+    // -----------------------------------------------------------------------
+    // Registro
+    // -----------------------------------------------------------------------
+
+    public async Task<ProfissionalDto> RegistrarAsync(RegistroRequest req, CancellationToken ct = default)
     {
-        var nome = req.Nome.Trim();
+        var usuario = NomeDeUsuario.Normalizar(req.Usuario);
+        var erros = new List<string>(NomeDeUsuario.Validar(req.Usuario));
 
-        if (string.IsNullOrWhiteSpace(nome) || string.IsNullOrWhiteSpace(req.Senha))
+        erros.AddRange(PoliticaDeSenha.Validar(req.Senha, usuario, req.Nome));
+
+        if (req.Senha != req.ConfirmacaoSenha)
         {
-            return new ResultadoLogin(false, null, "nome ou senha invalidos");
+            erros.Add("As senhas nao conferem.");
         }
 
-        var profissional = await _db.Profissionais
-            .FirstOrDefaultAsync(p => p.Nome == nome && p.Funcao == req.Funcao, ct);
-
-        if (profissional is null)
+        if (string.IsNullOrWhiteSpace(req.Nome) || req.Nome.Trim().Length < 3)
         {
-            return await PrimeiroAcessoAsync(req, nome, ct);
-        }
-
-        if (!profissional.Ativo)
-        {
-            // Mensagem generica de proposito: nao revela se a conta existe.
-            return new ResultadoLogin(false, null, "nome ou senha invalidos");
-        }
-
-        if (!BCrypt.Net.BCrypt.Verify(req.Senha, profissional.SenhaHash))
-        {
-            return new ResultadoLogin(false, null, "nome ou senha invalidos");
-        }
-
-        // Registro e idioma podem mudar entre plantoes; o login e um bom momento
-        // para atualizar sem exigir uma tela de perfil.
-        if (!string.IsNullOrWhiteSpace(req.Registro))
-        {
-            profissional.Registro = req.Registro.Trim();
-            profissional.ConselhoTipo = ConselhoPara(req.Funcao);
-        }
-
-        profissional.Idioma = req.Idioma;
-        await _db.SaveChangesAsync(ct);
-
-        return new ResultadoLogin(true, GerarResposta(profissional, contaCriadaAgora: false), null);
-    }
-
-    private async Task<ResultadoLogin> PrimeiroAcessoAsync(
-        LoginRequest req,
-        string nome,
-        CancellationToken ct)
-    {
-        var senhaEquipe = _config["Auth:SenhaEquipe"];
-
-        if (string.IsNullOrWhiteSpace(senhaEquipe) || req.Senha != senhaEquipe)
-        {
-            return new ResultadoLogin(false, null, "nome ou senha invalidos");
+            erros.Add("Informe o nome completo.");
         }
 
         var conselho = ConselhoPara(req.Funcao);
 
         if (conselho != ConselhoTipo.Nenhum && string.IsNullOrWhiteSpace(req.Registro))
         {
-            return new ResultadoLogin(false, null, $"registro ({conselho}) e obrigatorio para esta funcao");
+            erros.Add($"Registro no {conselho} e obrigatorio para esta funcao.");
+        }
+
+        if (erros.Count > 0)
+        {
+            throw new RegraDeNegocioException(erros);
+        }
+
+        if (await _db.Profissionais.AnyAsync(p => p.Usuario == usuario, ct))
+        {
+            throw new RegraDeNegocioException("Este usuario ja esta em uso. Escolha outro.");
         }
 
         var profissional = new Profissional
         {
-            Nome = nome,
+            Usuario = usuario,
+            Nome = req.Nome.Trim(),
+            Email = string.IsNullOrWhiteSpace(req.Email) ? null : req.Email.Trim(),
             Funcao = req.Funcao,
             ConselhoTipo = conselho,
             Registro = req.Registro?.Trim(),
-            // A senha da equipe vira a senha pessoal inicial, como no sistema
-            // original ("Se ja tem conta, use a sua senha").
             SenhaHash = BCrypt.Net.BCrypt.HashPassword(req.Senha),
-            Idioma = req.Idioma
+            Idioma = req.Idioma,
+            Status = StatusConta.Pendente
         };
 
         _db.Profissionais.Add(profissional);
         await _db.SaveChangesAsync(ct);
 
-        return new ResultadoLogin(true, GerarResposta(profissional, contaCriadaAgora: true), null);
+        return ParaDto(profissional);
     }
+
+    /// <summary>Verifica disponibilidade do usuario enquanto a pessoa digita.</summary>
+    public async Task<bool> UsuarioDisponivelAsync(string usuario, CancellationToken ct = default)
+    {
+        var normalizado = NomeDeUsuario.Normalizar(usuario);
+
+        if (NomeDeUsuario.Validar(usuario).Count > 0)
+        {
+            return false;
+        }
+
+        return !await _db.Profissionais.AnyAsync(p => p.Usuario == normalizado, ct);
+    }
+
+    // -----------------------------------------------------------------------
+    // Login
+    // -----------------------------------------------------------------------
+
+    public async Task<ResultadoLogin> AutenticarAsync(LoginRequest req, CancellationToken ct = default)
+    {
+        var usuario = NomeDeUsuario.Normalizar(req.Usuario);
+
+        if (string.IsNullOrWhiteSpace(usuario) || string.IsNullOrWhiteSpace(req.Senha))
+        {
+            return new ResultadoLogin(false, null, MotivoRecusaLogin.CredenciaisInvalidas);
+        }
+
+        var profissional = await _db.Profissionais.FirstOrDefaultAsync(p => p.Usuario == usuario, ct);
+
+        // Mesma resposta para usuario inexistente e senha errada, de proposito:
+        // nao adianta esconder o resto se o login revela quem tem conta.
+        if (profissional is null || !BCrypt.Net.BCrypt.Verify(req.Senha, profissional.SenhaHash))
+        {
+            return new ResultadoLogin(false, null, MotivoRecusaLogin.CredenciaisInvalidas);
+        }
+
+        // A partir daqui a pessoa provou quem e, entao explicar a situacao da
+        // conta nao vaza nada — e sem isso ela ficaria tentando de novo achando
+        // que errou a senha.
+        switch (profissional.Status)
+        {
+            case StatusConta.Pendente:
+                return new ResultadoLogin(false, null, MotivoRecusaLogin.ContaPendente);
+
+            case StatusConta.Recusada:
+                return new ResultadoLogin(
+                    false, null, MotivoRecusaLogin.ContaRecusada, profissional.MotivoRecusa);
+
+            case StatusConta.Desativada:
+                return new ResultadoLogin(false, null, MotivoRecusaLogin.ContaDesativada);
+        }
+
+        if (profissional.Idioma != req.Idioma)
+        {
+            profissional.Idioma = req.Idioma;
+            await _db.SaveChangesAsync(ct);
+        }
+
+        var (token, expira) = GerarToken(profissional);
+
+        return new ResultadoLogin(
+            true,
+            new LoginResponse(token, expira, ParaDto(profissional)));
+    }
+
+    // -----------------------------------------------------------------------
+    // Apoio
+    // -----------------------------------------------------------------------
 
     /// <summary>Conselho profissional esperado para cada funcao.</summary>
     public static ConselhoTipo ConselhoPara(FuncaoProfissional funcao) => funcao switch
@@ -123,20 +187,19 @@ public sealed class ServicoAutenticacao
         _ => ConselhoTipo.Nenhum
     };
 
-    private LoginResponse GerarResposta(Profissional profissional, bool contaCriadaAgora)
-    {
-        var (token, expira) = GerarToken(profissional);
-
-        var dto = new ProfissionalDto(
-            profissional.Id,
-            profissional.Nome,
-            profissional.Funcao,
-            profissional.ConselhoTipo,
-            profissional.Registro,
-            profissional.Idioma);
-
-        return new LoginResponse(token, expira, dto, contaCriadaAgora);
-    }
+    public static ProfissionalDto ParaDto(Profissional p) => new(
+        p.Id,
+        p.Usuario,
+        p.Nome,
+        p.Email,
+        p.Funcao,
+        p.ConselhoTipo,
+        p.Registro,
+        p.Idioma,
+        p.Status,
+        p.EhAdministrador,
+        p.MotivoRecusa,
+        p.CriadoEm);
 
     private (string Token, DateTime Expira) GerarToken(Profissional profissional)
     {
@@ -146,13 +209,21 @@ public sealed class ServicoAutenticacao
         var horas = int.TryParse(_config["Jwt:HorasValidade"], out var h) ? h : 12;
         var expira = DateTime.UtcNow.AddHours(horas);
 
-        var claims = new[]
+        var claims = new List<Claim>
         {
-            new Claim(JwtRegisteredClaimNames.Sub, profissional.Id.ToString()),
-            new Claim(ClaimTypes.Name, profissional.Nome),
-            new Claim("funcao", profissional.Funcao.ToString()),
-            new Claim("idioma", profissional.Idioma.ToString())
+            new(JwtRegisteredClaimNames.Sub, profissional.Id.ToString()),
+            new(ClaimTypes.Name, profissional.Nome),
+            new("usuario", profissional.Usuario),
+            new("funcao", profissional.Funcao.ToString()),
+            new("idioma", profissional.Idioma.ToString())
         };
+
+        // A permissao de administrador viaja como role para que os controllers
+        // possam exigi-la com [Authorize(Roles = ...)].
+        if (profissional.EhAdministrador)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, Papeis.Administrador));
+        }
 
         var credenciais = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(chave)),
@@ -167,4 +238,10 @@ public sealed class ServicoAutenticacao
 
         return (new JwtSecurityTokenHandler().WriteToken(token), expira);
     }
+}
+
+/// <summary>Papeis usados na autorizacao.</summary>
+public static class Papeis
+{
+    public const string Administrador = "Administrador";
 }
