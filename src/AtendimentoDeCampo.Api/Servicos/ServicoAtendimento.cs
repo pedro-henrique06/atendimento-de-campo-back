@@ -682,6 +682,9 @@ public sealed class ServicoAtendimento
         Especialidade? fila,
         ClassificacaoRisco? risco,
         string? busca,
+        Guid? assumidosPor = null,
+        bool ocultarAssumidosPorOutros = false,
+        Guid? euId = null,
         CancellationToken ct = default)
     {
         var query = _db.Atendimentos
@@ -701,6 +704,31 @@ public sealed class ServicoAtendimento
                 e => e.Especialidade == fila && e.Status != StatusEtapa.Concluida));
         }
 
+        // "Meus atendimentos": o que esta pessoa assumiu e ainda nao concluiu.
+        if (assumidosPor is not null)
+        {
+            query = query.Where(a => a.Etapas.Any(
+                e => e.ProfissionalId == assumidosPor && e.Status != StatusEtapa.Concluida));
+        }
+
+        /*
+            A fila de quem esta livre nao mostra o que ja esta na mao de outra
+            pessoa — e disso que serve assumir.
+
+            `euId` e quem esta perguntando, e vem sempre, independente de
+            `assumidosPor`. Usar `assumidosPor` aqui escondia o atendimento de
+            quem acabou de assumi-lo: fora de "Meus" ele e nulo, e a comparacao
+            virava "esconda tudo que esta assumido".
+        */
+        if (ocultarAssumidosPorOutros && fila is not null)
+        {
+            query = query.Where(a => !a.Etapas.Any(
+                e => e.Especialidade == fila &&
+                     e.Status != StatusEtapa.Concluida &&
+                     e.ProfissionalId != null &&
+                     e.ProfissionalId != euId));
+        }
+
         if (!string.IsNullOrWhiteSpace(busca))
         {
             var termo = busca.Trim();
@@ -716,6 +744,205 @@ public sealed class ServicoAtendimento
             .ToListAsync(ct);
 
         return atendimentos.Select(Mapeadores.ParaResumo).ToList();
+    }
+
+    // -----------------------------------------------------------------------
+    // Assumir e liberar
+    // -----------------------------------------------------------------------
+
+    /// <summary>
+    /// Assume a etapa: ela sai da fila de quem esta livre e passa a aparecer
+    /// como "em atendimento com <fulano>".
+    ///
+    /// Sem isto, dois profissionais abrem o mesmo paciente ao mesmo tempo e
+    /// nenhum dos dois sabe — com a fila cheia isso acontece, e o segundo so
+    /// descobre quando vai salvar por cima do primeiro.
+    /// </summary>
+    public async Task<AtendimentoResumoDto> AssumirEtapaAsync(
+        Guid atendimentoId,
+        Especialidade especialidade,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarComEtapasAsync(atendimentoId, ct);
+        var etapa = EtapaAberta(atendimento, especialidade);
+
+        if (etapa.ProfissionalId == profissionalId)
+        {
+            // Ja e dele. Reassumir nao e erro: acontece quando a tela recarrega.
+            return Mapeadores.ParaResumo(atendimento);
+        }
+
+        if (etapa.ProfissionalId is not null)
+        {
+            var dono = await _db.Profissionais
+                .AsNoTracking()
+                .Where(p => p.Id == etapa.ProfissionalId)
+                .Select(p => p.Nome)
+                .FirstOrDefaultAsync(ct);
+
+            throw new RegraDeNegocioException(
+                $"Este atendimento ja esta com {dono ?? "outro profissional"}.");
+        }
+
+        etapa.ProfissionalId = profissionalId;
+        etapa.Status = StatusEtapa.EmAndamento;
+        etapa.IniciadaEm ??= DateTime.UtcNow;
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.AssumiuEtapa, especialidade, ct);
+
+        await _db.SaveChangesAsync(ct);
+
+        return Mapeadores.ParaResumo(atendimento);
+    }
+
+    /// <summary>
+    /// Devolve a etapa para a fila.
+    ///
+    /// Quem assumiu pode liberar; a coordenacao pode liberar a de qualquer um,
+    /// porque em campo alguem assume e sai para outra emergencia, e sem essa
+    /// saida o paciente ficaria preso numa fila que ninguem mais ve.
+    /// </summary>
+    public async Task<AtendimentoResumoDto> LiberarEtapaAsync(
+        Guid atendimentoId,
+        Especialidade especialidade,
+        Guid profissionalId,
+        bool ehAdministrador,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarComEtapasAsync(atendimentoId, ct);
+        var etapa = EtapaAberta(atendimento, especialidade);
+
+        if (etapa.ProfissionalId is null)
+        {
+            return Mapeadores.ParaResumo(atendimento);
+        }
+
+        if (etapa.ProfissionalId != profissionalId && !ehAdministrador)
+        {
+            throw new RegraDeNegocioException(
+                "Somente quem assumiu, ou a coordenacao, pode devolver o atendimento para a fila.");
+        }
+
+        etapa.ProfissionalId = null;
+        etapa.Status = StatusEtapa.Aguardando;
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.LiberouEtapa, especialidade, ct);
+
+        await _db.SaveChangesAsync(ct);
+
+        return Mapeadores.ParaResumo(atendimento);
+    }
+
+    /// <summary>
+    /// Manda o paciente para outra fila, sem fechar consulta nenhuma.
+    ///
+    /// Ate agora a unica forma de redirecionar era concluir a consulta com
+    /// desfecho "Encaminhado", o que exige CID-10. Quando a triagem simplesmente
+    /// errou a fila — problema dentario que caiu na clinica geral — isso
+    /// obrigaria o medico a inventar um diagnostico para uma consulta que nao
+    /// aconteceu. E tambem nao existia caminho nenhum saindo da odontologia e da
+    /// enfermagem, que nao tem campo de encaminhamento.
+    ///
+    /// O motivo e obrigatorio: quem recebe o paciente na fila seguinte precisa
+    /// saber por que ele chegou ali, e um encaminhamento mudo faz o paciente
+    /// circular entre filas sem ninguem entender o caminho.
+    /// </summary>
+    public async Task<ProntuarioDto> EncaminharAsync(
+        Guid atendimentoId,
+        Especialidade origem,
+        Especialidade destino,
+        string? motivo,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        if (origem == destino)
+        {
+            throw new RegraDeNegocioException("A fila de destino e a mesma de origem.");
+        }
+
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            throw new RegraDeNegocioException("Informe o motivo do encaminhamento.");
+        }
+
+        var atendimento = await CarregarAsync(atendimentoId, ct);
+
+        if (atendimento.FinalizadoEm is not null)
+        {
+            throw new RegraDeNegocioException(
+                "Este atendimento ja foi finalizado. Reabra antes de encaminhar.");
+        }
+
+        var etapa = atendimento.Etapas.FirstOrDefault(e => e.Especialidade == origem)
+            ?? throw new RegraDeNegocioException("Este atendimento nao passou por esta fila.");
+
+        if (etapa.Status == StatusEtapa.Concluida)
+        {
+            throw new RegraDeNegocioException("Esta etapa ja foi concluida.");
+        }
+
+        /*
+            Nada clinico registrado significa que o paciente nunca foi atendido
+            aqui: a etapa e cancelada, nao concluida. Marcar como concluida
+            inflaria a producao da especialidade com atendimentos que nao
+            existiram — e producao por area e justamente o numero que este
+            sistema precisa manter confiavel.
+        */
+        var houveAtendimento = etapa.Triagem is not null
+            || etapa.Consulta is not null
+            || etapa.Odontologia is not null
+            || etapa.Enfermagem is not null;
+
+        etapa.Status = houveAtendimento ? StatusEtapa.Concluida : StatusEtapa.Cancelada;
+        etapa.ConcluidaEm = DateTime.UtcNow;
+        etapa.ProfissionalId = profissionalId;
+
+        FecharPassagem(atendimento, origem);
+        await AbrirFilaAsync(atendimento, destino, ct);
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.EncaminhouParaOutraFila, origem, ct);
+
+        // Chave e valores canonicos: a traducao acontece na hora de exibir, para
+        // o historico nao congelar no idioma de quem encaminhou.
+        _auditoria.RegistrarDiffs(
+            atendimentoId,
+            profissionalId,
+            new[]
+            {
+                new DiffCampo("atendimento.fila", origem.ToString(), destino.ToString()),
+                new DiffCampo("atendimento.motivoEncaminhamento", null, motivo.Trim())
+            },
+            origem,
+            aposFinalizacao: false);
+
+        atendimento.AtualizadoEm = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+
+        return await ObterProntuarioAsync(atendimentoId, ct);
+    }
+
+    private async Task<Atendimento> CarregarComEtapasAsync(Guid id, CancellationToken ct)
+        => await _db.Atendimentos
+            .Include(a => a.Paciente)
+            .Include(a => a.Etapas).ThenInclude(e => e.Profissional)
+            .FirstOrDefaultAsync(a => a.Id == id, ct)
+            ?? throw new RegraDeNegocioException("Atendimento nao encontrado.");
+
+    private static Etapa EtapaAberta(Atendimento atendimento, Especialidade especialidade)
+    {
+        var etapa = atendimento.Etapas.FirstOrDefault(e => e.Especialidade == especialidade)
+            ?? throw new RegraDeNegocioException("Este atendimento nao passou por esta fila.");
+
+        if (etapa.Status == StatusEtapa.Concluida)
+        {
+            throw new RegraDeNegocioException("Esta etapa ja foi concluida.");
+        }
+
+        return etapa;
     }
 
     public async Task<ProntuarioDto> ObterProntuarioAsync(Guid id, CancellationToken ct = default)

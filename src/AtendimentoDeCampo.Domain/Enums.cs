@@ -309,5 +309,14 @@ public enum AcaoAuditoria
     FinalizouAtendimento = 4,
     ReabriuAtendimento = 5,
     EditouAposFinalizacao = 6,
-    Cancelou = 7
+    Cancelou = 7,
+
+    /// <summary>Assumiu a etapa: a partir daqui ela some da fila dos outros.</summary>
+    AssumiuEtapa = 8,
+
+    /// <summary>Devolveu a etapa para a fila, sem ter registrado o atendimento.</summary>
+    LiberouEtapa = 9,
+
+    /// <summary>Mandou o paciente para outra fila.</summary>
+    EncaminhouParaOutraFila = 10
 }

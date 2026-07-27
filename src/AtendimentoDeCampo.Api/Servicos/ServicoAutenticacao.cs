@@ -199,7 +199,8 @@ public sealed class ServicoAutenticacao
         p.Status,
         p.EhAdministrador,
         p.MotivoRecusa,
-        p.CriadoEm);
+        p.CriadoEm,
+        FilasDaFuncao.De(p.Funcao).ToList());
 
     private (string Token, DateTime Expira) GerarToken(Profissional profissional)
     {

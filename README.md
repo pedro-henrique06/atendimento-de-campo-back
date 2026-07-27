@@ -234,6 +234,55 @@ cargo (Médico, Psicólogo, Enfermagem) num único campo "área", o que impedia
 qualquer leitura confiável de produção. Aqui são dois eixos independentes:
 `Especialidade` (a fila) e `FuncaoProfissional` (quem atendeu).
 
+## Fila do profissional
+
+`FilasDaFuncao` diz em que filas cada função trabalha, e a primeira da lista é a
+que a tela abre por padrão. **Não é permissão.** Em campo a equipe é curta e as
+funções se cobrem — médico tria quando a fila estoura, enfermeiro acompanha uma
+consulta. Trancar aqui atrapalharia o atendimento sem proteger nada, já que quem
+entrou no sistema foi aprovado pela coordenação. "Todas as filas" continua
+disponível para todo mundo.
+
+### Encaminhar
+
+Depois da triagem, quem recebe o paciente na própria fila pode mandá-lo para
+outra. Isso já existia **como efeito** de fechar a consulta com desfecho
+"Encaminhado" — mas esse caminho exige CID-10. Quando a triagem simplesmente
+errou a fila (problema dentário que caiu na clínica geral), obrigaria o médico a
+inventar um diagnóstico para uma consulta que não aconteceu. E não havia caminho
+nenhum saindo da odontologia e da enfermagem, cujas fichas não têm campo de
+encaminhamento.
+
+`POST .../encaminhar` é ação de roteamento, não conclusão clínica:
+
+- **O motivo é obrigatório.** Quem recebe o paciente precisa saber por que ele
+  chegou ali; encaminhamento mudo faz o paciente circular sem ninguém entender o
+  caminho.
+- **A fila de origem fica `Cancelada`, não `Concluida`,** quando nada clínico foi
+  registrado ali. O paciente nunca foi atendido naquela fila, e marcar como
+  concluída inflaria a produção da especialidade com atendimentos que não
+  existiram.
+- O motivo e a troca de fila vão para a auditoria com chave e valores canônicos,
+  traduzidos na hora de exibir.
+
+### Assumir
+
+`Etapa.ProfissionalId` deixa de ser só o registro de quem atendeu e passa a
+marcar quem **está** atendendo. Assumida, a etapa sai da fila de quem está livre
+(`ocultarAssumidos=true`) e a segunda tentativa é recusada dizendo com quem o
+paciente está — sem o nome, ninguém sabe a quem perguntar.
+
+Reassumir o que já é seu não é erro: acontece quando a tela recarrega.
+
+Liberar devolve para a fila. Quem assumiu pode liberar, e **a coordenação pode
+liberar a de qualquer um**: em campo alguém assume e sai para outra emergência,
+e sem essa saída o paciente ficaria preso numa fila que mais ninguém enxerga.
+
+O parâmetro `euId` da listagem é sempre quem está perguntando, separado de
+`assumidosPor`. Reaproveitar `assumidosPor` no filtro escondia o atendimento de
+quem acabara de assumi-lo, porque fora de "Meus" ele é nulo e a comparação virava
+"esconda tudo que está assumido".
+
 ## Protocolo START
 
 `ProtocoloStart.Avaliar` implementa o algoritmo (deambulação → respiração →
@@ -266,6 +315,9 @@ clínico não decide no lugar de quem está com o paciente na frente.
 | `GET` | `/api/atendimentos` | Lista por base, fila, risco e busca |
 | `GET` | `/api/atendimentos/{id}` | Prontuário completo |
 | `GET` | `/api/atendimentos/codigo/{codigo}` | Busca pelo código curto |
+| `POST` | `/api/atendimentos/{id}/etapas/{especialidade}/assumir` | Assume a etapa |
+| `POST` | `/api/atendimentos/{id}/etapas/{especialidade}/liberar` | Devolve para a fila |
+| `POST` | `/api/atendimentos/{id}/etapas/{especialidade}/encaminhar` | Manda para outra fila |
 | `POST` | `/api/atendimentos` | Cadastro do paciente + abertura |
 | `PUT` | `/api/atendimentos/{id}/triagem` | Triagem e classificação START |
 | `PUT` | `/api/atendimentos/{id}/consulta` | Consulta médica / pediatria / ortopedia / saúde mental |
