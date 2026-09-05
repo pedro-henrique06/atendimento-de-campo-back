@@ -11,6 +11,7 @@ public class AtendimentoDbContext : DbContext
 
     public DbSet<Base> Bases => Set<Base>();
     public DbSet<Profissional> Profissionais => Set<Profissional>();
+    public DbSet<Comunidade> Comunidades => Set<Comunidade>();
     public DbSet<Paciente> Pacientes => Set<Paciente>();
     public DbSet<Atendimento> Atendimentos => Set<Atendimento>();
     public DbSet<Etapa> Etapas => Set<Etapa>();
@@ -30,6 +31,7 @@ public class AtendimentoDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder b)
     {
         ConfigurarBase(b);
+        ConfigurarComunidade(b);
         ConfigurarProfissional(b);
         ConfigurarPaciente(b);
         ConfigurarAtendimento(b);
@@ -46,6 +48,19 @@ public class AtendimentoDbContext : DbContext
             e.Property(x => x.Nome).IsRequired().HasMaxLength(160);
             e.Property(x => x.PrefixoCodigo).IsRequired().HasMaxLength(3);
             e.HasIndex(x => x.PrefixoCodigo).IsUnique();
+        });
+    }
+
+    private static void ConfigurarComunidade(ModelBuilder b)
+    {
+        b.Entity<Comunidade>(e =>
+        {
+            e.ToTable("comunidades");
+            e.Property(x => x.Nome).IsRequired().HasMaxLength(160);
+
+            // Nome unico: duas "Vila Uniao" na lista devolveriam ao cadastro
+            // exatamente a ambiguidade que a lista veio eliminar.
+            e.HasIndex(x => x.Nome).IsUnique();
         });
     }
 
@@ -90,6 +105,9 @@ public class AtendimentoDbContext : DbContext
             e.Property(x => x.Codigo).IsRequired().HasMaxLength(9);
             e.Property(x => x.Nome).IsRequired().HasMaxLength(200);
             e.Property(x => x.NumeroDocumento).HasMaxLength(60);
+            e.Property(x => x.CartaoSus).HasMaxLength(20);
+            e.Property(x => x.NomeDaMae).HasMaxLength(200);
+            e.Property(x => x.Endereco).HasMaxLength(300);
             e.Property(x => x.Alergias).HasMaxLength(500);
             e.Property(x => x.OutraCondicaoCronica).HasMaxLength(200);
 
@@ -97,6 +115,16 @@ public class AtendimentoDbContext : DbContext
             AplicarListaEnum<Paciente, Vulnerabilidade>(e, x => x.Vulnerabilidades);
 
             e.HasIndex(x => x.Nome);
+
+            /*
+                A comunidade nao apaga junto: um paciente cadastrado continua
+                sendo daquele lugar mesmo que a coordenacao remova a comunidade
+                da lista. Por isso Restrict, e a remocao na pratica e desativar.
+            */
+            e.HasOne(x => x.Comunidade)
+                .WithMany(c => c.Pacientes)
+                .HasForeignKey(x => x.ComunidadeId)
+                .OnDelete(DeleteBehavior.Restrict);
 
             // O codigo e o que o paciente carrega no bolso: precisa achar um so.
             e.HasIndex(x => x.Codigo).IsUnique();

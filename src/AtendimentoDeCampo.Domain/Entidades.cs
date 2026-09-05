@@ -16,6 +16,25 @@ public class Base
     public ICollection<EstoqueBase> Estoque { get; set; } = new List<EstoqueBase>();
 }
 
+/// <summary>
+/// Comunidade de onde o paciente vem, cadastrada pela coordenacao.
+///
+/// E uma lista, e nao texto livre no cadastro do paciente, pelo mesmo motivo das
+/// bases: digitado a mao, o mesmo lugar vira tres nomes diferentes e a contagem
+/// por comunidade para de fechar. Como e essa contagem que orienta onde montar a
+/// proxima base, o texto livre custaria caro.
+/// </summary>
+public class Comunidade
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Nome { get; set; } = string.Empty;
+
+    public bool Ativa { get; set; } = true;
+    public DateTime CriadaEm { get; set; } = DateTime.UtcNow;
+
+    public ICollection<Paciente> Pacientes { get; set; } = new List<Paciente>();
+}
+
 /// <summary>Profissional / voluntario que opera o sistema.</summary>
 public class Profissional
 {
@@ -91,6 +110,37 @@ public class Paciente
     public string Nome { get; set; } = string.Empty;
     public TipoDocumento TipoDocumento { get; set; } = TipoDocumento.SemDocumento;
     public string? NumeroDocumento { get; set; }
+
+    /// <summary>
+    /// Cartao do SUS.
+    ///
+    /// Campo proprio, e nao um <see cref="TipoDocumento"/>: a pessoa pode ter RG
+    /// <em>e</em> cartao do SUS, e como tipo um excluiria o outro — que e
+    /// exatamente o que faria o numero do cartao se perder no cadastro.
+    /// </summary>
+    public string? CartaoSus { get; set; }
+
+    /// <summary>
+    /// Onde a pessoa mora, escolhido de uma lista cadastrada pela coordenacao.
+    ///
+    /// Lista, e nao texto livre: em campo o mesmo lugar viraria "Vila Uniao",
+    /// "vila uniao" e "V. Uniao" na mesma estatistica, e a contagem por
+    /// comunidade — que e o que orienta onde montar a proxima base — deixaria de
+    /// fechar.
+    /// </summary>
+    public Guid? ComunidadeId { get; set; }
+    public Comunidade? Comunidade { get; set; }
+
+    /// <summary>
+    /// Obrigatorio para menor de idade. Em campo a crianca costuma chegar
+    /// acompanhada de quem nao e o responsavel legal, e o nome da mae e o que
+    /// permite reencontrar a familia depois.
+    /// </summary>
+    public string? NomeDaMae { get; set; }
+
+    /// <summary>Obrigatorio para menor de idade, pelo mesmo motivo.</summary>
+    public string? Endereco { get; set; }
+
     public DateOnly? DataNascimento { get; set; }
 
     /// <summary>Usada apenas quando a data de nascimento e desconhecida, comum em campo.</summary>
@@ -196,6 +246,31 @@ public class Triagem
     public int? SaturacaoO2 { get; set; }
     public double? TemperaturaCelsius { get; set; }
     public int? GlicemiaCapilar { get; set; }
+
+    /// <summary>
+    /// Peso em quilos.
+    ///
+    /// Nao e so estatistica: e o peso que permite conferir dose pediatrica na
+    /// dispensacao, que ja existe e ate agora dependia de alguem lembrar do
+    /// numero.
+    /// </summary>
+    public double? PesoKg { get; set; }
+
+    /// <summary>Altura em centimetros. Com o peso, permite calcular o IMC.</summary>
+    public int? AlturaCm { get; set; }
+
+    /// <summary>
+    /// Dor de 0 a 10, autorreferida.
+    ///
+    /// De 0, e nao de 1: "sem dor" e uma resposta valida e diferente de nao ter
+    /// perguntado — que e o que o nulo significa.
+    ///
+    /// Deliberadamente NAO entra no <see cref="Servicos.ProtocoloStart"/>. O START
+    /// classifica por deambulacao, respiracao, perfusao e consciencia; enfiar dor
+    /// ali produziria um START que nao e o START, e a sugestao deixaria de poder
+    /// ser conferida contra o protocolo publicado.
+    /// </summary>
+    public int? EscalaDor { get; set; }
 
     public List<Sintoma> Sintomas { get; set; } = new();
     public string? OutroSintoma { get; set; }

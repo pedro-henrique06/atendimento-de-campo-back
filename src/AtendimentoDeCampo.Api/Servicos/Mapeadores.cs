@@ -18,8 +18,14 @@ public static class Mapeadores
             p.Nome,
             p.TipoDocumento,
             p.NumeroDocumento,
+            p.CartaoSus,
+            p.ComunidadeId,
+            p.Comunidade?.Nome,
+            p.NomeDaMae,
+            p.Endereco,
             p.DataNascimento,
             idade,
+            RegrasDoMenor.EhMenor(idade),
             p.Sexo,
             p.StatusAlergia,
             p.Alergias,
@@ -57,6 +63,9 @@ public static class Mapeadores
     public static ProntuarioDto ParaProntuario(Atendimento a)
     {
         var etapas = a.Etapas.OrderBy(e => e.CriadaEm).ToList();
+
+        // A triagem precisa da idade para saber se a faixa do IMC pode ser lida.
+        var idade = CalculadoraIdade.Calcular(a.Paciente?.DataNascimento, a.Paciente?.IdadeAproximada);
 
         var triagemEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Triagem);
         var odontoEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Odontologia);
@@ -104,7 +113,7 @@ public static class Mapeadores
             a.CriadoEm,
             a.FinalizadoPor?.Nome,
             a.FinalizadoEm,
-            triagemEtapa?.Triagem is null ? null : ParaTriagemDto(triagemEtapa),
+            triagemEtapa?.Triagem is null ? null : ParaTriagemDto(triagemEtapa, idade),
             consultas,
             odontoEtapa?.Odontologia is null ? null : ParaOdontologiaDto(odontoEtapa),
             enfEtapa?.Enfermagem is null ? null : ParaEnfermagemDto(enfEtapa),
@@ -131,9 +140,19 @@ public static class Mapeadores
             ? null
             : new AutorDto(profissional.Nome, profissional.ConselhoTipo, profissional.Registro);
 
-    private static TriagemDto ParaTriagemDto(Etapa etapa)
+    /// <param name="idadeDoPaciente">
+    /// Decide se a faixa do IMC pode ser lida: o corte da OMS e de adulto. Vem
+    /// por parametro, e nao de <c>etapa.Atendimento.Paciente</c>, porque
+    /// depender da navegacao inversa numa consulta sem rastreamento e o tipo de
+    /// suposicao que devolve nulo sem ninguem perceber.
+    /// </param>
+    private static TriagemDto ParaTriagemDto(Etapa etapa, int? idadeDoPaciente)
     {
         var t = etapa.Triagem!;
+
+        // O IMC nao e gravado: e derivado de peso e altura, e guardar dado
+        // derivado so cria a chance de ele discordar da origem.
+        var imc = CalculadoraImc.Calcular(t.PesoKg, t.AlturaCm);
 
         return new TriagemDto(
             etapa.Id,
@@ -145,6 +164,11 @@ public static class Mapeadores
             t.SaturacaoO2,
             t.TemperaturaCelsius,
             t.GlicemiaCapilar,
+            t.PesoKg,
+            t.AlturaCm,
+            imc,
+            CalculadoraImc.Classificar(imc, idadeDoPaciente),
+            t.EscalaDor,
             t.Sintomas,
             t.OutroSintoma,
             t.MedicamentosEmUso,

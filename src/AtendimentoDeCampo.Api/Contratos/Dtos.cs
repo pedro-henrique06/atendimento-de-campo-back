@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using AtendimentoDeCampo.Domain;
+using AtendimentoDeCampo.Domain.Servicos;
 
 namespace AtendimentoDeCampo.Api.Contratos;
 
@@ -193,6 +194,24 @@ public sealed record DadosPacienteRequest
     [MaxLength(60)]
     public string? NumeroDocumento { get; init; }
 
+    /// <summary>
+    /// Cartao do SUS. Campo proprio, e nao um tipo de documento: como tipo, um
+    /// excluiria o outro e o numero se perderia.
+    /// </summary>
+    [MaxLength(20)]
+    public string? CartaoSus { get; init; }
+
+    /// <summary>Escolhida da lista mantida pela coordenacao; nao e texto livre.</summary>
+    public Guid? ComunidadeId { get; init; }
+
+    /// <summary>Obrigatorio quando o paciente e menor de idade.</summary>
+    [MaxLength(200)]
+    public string? NomeDaMae { get; init; }
+
+    /// <summary>Obrigatorio quando o paciente e menor de idade.</summary>
+    [MaxLength(300)]
+    public string? Endereco { get; init; }
+
     public DateOnly? DataNascimento { get; init; }
 
     [Range(0, 130)]
@@ -249,8 +268,16 @@ public sealed record PacienteDto(
     string Nome,
     TipoDocumento TipoDocumento,
     string? NumeroDocumento,
+    /// <summary>Campo proprio: a pessoa pode ter RG <em>e</em> cartao do SUS.</summary>
+    string? CartaoSus,
+    Guid? ComunidadeId,
+    string? Comunidade,
+    string? NomeDaMae,
+    string? Endereco,
     DateOnly? DataNascimento,
     int? Idade,
+    /// <summary>Menor de idade; nulo quando a idade e desconhecida.</summary>
+    bool EhMenor,
     Sexo Sexo,
     StatusAlergia StatusAlergia,
     string? Alergias,
@@ -369,6 +396,17 @@ public sealed record RegistrarTriagemRequest
     [Range(30, 45)] public double? TemperaturaCelsius { get; init; }
     [Range(10, 900)] public int? GlicemiaCapilar { get; init; }
 
+    /// <summary>Peso em quilos. E o que permite conferir dose pediatrica.</summary>
+    [Range(0.5, 400)] public double? PesoKg { get; init; }
+
+    [Range(20, 250)] public int? AlturaCm { get; init; }
+
+    /// <summary>
+    /// Dor autorreferida de 0 a 10. De 0, e nao de 1: "sem dor" e resposta, e
+    /// nulo e "nao perguntei".
+    /// </summary>
+    [Range(0, 10)] public int? EscalaDor { get; init; }
+
     public List<Sintoma> Sintomas { get; init; } = new();
 
     [MaxLength(300)]
@@ -407,6 +445,17 @@ public sealed record TriagemDto(
     int? SaturacaoO2,
     double? TemperaturaCelsius,
     int? GlicemiaCapilar,
+    double? PesoKg,
+    int? AlturaCm,
+    /// <summary>Calculado de peso e altura; nao e gravado.</summary>
+    double? Imc,
+    /// <summary>
+    /// Faixa do IMC pelos cortes da OMS. Nula em menor de 20 anos: em crianca o
+    /// IMC se le em curva por idade, e o corte de adulto diria "baixo peso" para
+    /// uma crianca saudavel.
+    /// </summary>
+    FaixaImc? FaixaImc,
+    int? EscalaDor,
     List<Sintoma> Sintomas,
     string? OutroSintoma,
     string? MedicamentosEmUso,
@@ -633,3 +682,28 @@ public sealed record ProducaoProfissionalDto(
     /// <summary>Mediana, e nao media: uma ficha esquecida aberta deformaria a media.</summary>
     int? MinutosMedianos,
     List<ProducaoPorFilaDto> PorFila);
+
+
+// ---------------------------------------------------------------------------
+// Comunidades
+// ---------------------------------------------------------------------------
+
+/// <summary>Comunidade como o cadastro do paciente a oferece.</summary>
+public sealed record ComunidadeDto(Guid Id, string Nome, bool Ativa);
+
+/// <summary>
+/// A comunidade como a coordenacao a ve. O total de pacientes e o que responde
+/// se ainda faz sentido manter na lista.
+/// </summary>
+public sealed record ComunidadeAdminDto(
+    Guid Id,
+    string Nome,
+    bool Ativa,
+    DateTime CriadaEm,
+    int TotalPacientes);
+
+public sealed record SalvarComunidadeRequest
+{
+    [Required, MaxLength(160)]
+    public string Nome { get; init; } = string.Empty;
+}
