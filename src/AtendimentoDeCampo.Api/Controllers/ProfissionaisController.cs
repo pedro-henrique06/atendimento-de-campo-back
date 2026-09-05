@@ -39,6 +39,39 @@ public class ProfissionaisController : ControllerBase
         CancellationToken ct)
         => Ok(await _servico.ListarAsync(status, busca, ct));
 
+    /// <summary>
+    /// Cadastra um profissional. Unica porta de entrada no sistema: nao existe
+    /// auto-registro. A resposta traz a senha do primeiro acesso, e essa e a
+    /// unica vez em que ela aparece.
+    /// </summary>
+    [HttpPost]
+    public async Task<ActionResult<ContaCriadaDto>> Criar(
+        [FromBody] CriarContaRequest req,
+        CancellationToken ct)
+        => Ok(await _servico.CriarAsync(req, AdministradorId, ct));
+
+    /// <summary>Consulta se um usuario esta livre, enquanto a coordenacao digita.</summary>
+    [HttpGet("usuario-disponivel")]
+    public async Task<ActionResult<UsuarioDisponivelResponse>> UsuarioDisponivel(
+        [FromQuery] string usuario,
+        CancellationToken ct)
+        => Ok(new UsuarioDisponivelResponse(
+            usuario,
+            await _servico.UsuarioDisponivelAsync(usuario, ct)));
+
+    /// <summary>Muda a profissao e, com ela, a fila que a pessoa passa a ver.</summary>
+    [HttpPost("{id:guid}/profissao")]
+    public async Task<ActionResult<ProfissionalDto>> AlterarProfissao(
+        Guid id,
+        [FromBody] AlterarProfissaoRequest req,
+        CancellationToken ct)
+        => Ok(await _servico.AlterarProfissaoAsync(id, req.Funcao, req.Registro, ct));
+
+    /// <summary>Sorteia uma senha provisoria nova, para quem perdeu a de acesso.</summary>
+    [HttpPost("{id:guid}/redefinir-senha")]
+    public async Task<ActionResult<ContaCriadaDto>> RedefinirSenha(Guid id, CancellationToken ct)
+        => Ok(await _servico.RedefinirSenhaAsync(id, ct));
+
     /// <summary>Quantas contas aguardam aprovacao, para o aviso no cabecalho.</summary>
     [HttpGet("pendentes/total")]
     public async Task<ActionResult<int>> ContarPendentes(CancellationToken ct)

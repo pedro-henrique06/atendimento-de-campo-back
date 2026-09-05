@@ -78,6 +78,164 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     }
 
     async Task IAsyncLifetime.DisposeAsync() => await Task.CompletedTask;
+
+    // -----------------------------------------------------------------------
+    // Entrada no sistema
+    // -----------------------------------------------------------------------
+
+    private static readonly JsonSerializerOptions JsonFixture = new(JsonSerializerDefaults.Web)
+    {
+        Converters = { new JsonStringEnumConverter() }
+    };
+
+    /// <summary>Senha que os testes deixam nas contas depois de trocar a provisoria.</summary>
+    public const string SenhaDoTeste = "plantao-2026";
+
+    /// <summary>
+    /// Contas ja criadas nesta execucao.
+    ///
+    /// A senha provisoria e sorteada e cada teste que pede o mesmo usuario
+    /// precisa entrar na mesma conta: sem guardar, o segundo pedido tentaria
+    /// criar de novo e esbarraria no usuario em uso.
+    /// </summary>
+    private readonly HashSet<string> _contasCriadas = [];
+
+    /// <summary>Entra como o administrador inicial, criado a partir da configuracao.</summary>
+    public async Task<HttpClient> ClienteDoAdministradorAsync()
+    {
+        var client = CreateClient();
+
+        var resposta = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            usuario = AdminUsuario,
+            senha = AdminSenha,
+            idioma = "Pt"
+        }, JsonFixture);
+
+        resposta.EnsureSuccessStatusCode();
+
+        var login = await resposta.Content.ReadFromJsonAsync<LoginResponse>(JsonFixture);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
+
+        return client;
+    }
+
+    /// <summary>
+    /// Percorre o caminho inteiro de entrada e devolve um client autenticado: a
+    /// coordenacao cadastra, o sistema sorteia a senha, a pessoa entra e troca.
+    ///
+    /// Esta e a unica porta que existe — nao ha auto-registro. Concentrar aqui
+    /// e o que faz a suite exercitar o fluxo de verdade em vez de cada arquivo
+    /// reimplementar os tres passos.
+    /// </summary>
+    public async Task<HttpClient> ClienteDeAsync(
+        string usuario,
+        string nome,
+        FuncaoProfissional funcao,
+        string? registro = null)
+        => (await ClienteEPerfilDeAsync(usuario, nome, funcao, registro)).Cliente;
+
+    /// <summary>
+    /// O mesmo, devolvendo tambem o perfil que veio no login — que e onde as
+    /// filas da profissao chegam a sessao.
+    /// </summary>
+    public async Task<(HttpClient Cliente, ProfissionalDto Eu)> ClienteEPerfilDeAsync(
+        string usuario,
+        string nome,
+        FuncaoProfissional funcao,
+        string? registro = null)
+    {
+        var client = CreateClient();
+
+        if (_contasCriadas.Add(usuario))
+        {
+            var admin = await ClienteDoAdministradorAsync();
+
+            var criacao = await admin.PostAsJsonAsync("/api/profissionais", new
+            {
+                usuario,
+                nome,
+                funcao = funcao.ToString(),
+                registro,
+                idioma = "Pt"
+            }, JsonFixture);
+
+            criacao.EnsureSuccessStatusCode();
+
+            var conta = await criacao.Content.ReadFromJsonAsync<ContaCriadaDto>(JsonFixture);
+
+            await TrocarSenhaAsync(usuario, conta!.SenhaProvisoria);
+        }
+
+        var entrada = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            usuario,
+            senha = SenhaDoTeste,
+            idioma = "Pt"
+        }, JsonFixture);
+
+        entrada.EnsureSuccessStatusCode();
+
+        var login = await entrada.Content.ReadFromJsonAsync<LoginResponse>(JsonFixture);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
+
+        return (client, login.Profissional);
+    }
+
+    /// <summary>
+    /// Grava direto no banco uma conta pendente, como as que se registraram
+    /// sozinhas antes de o auto-registro sair.
+    ///
+    /// Nao ha rota que produza isso: e exatamente o ponto. As contas pendentes
+    /// que ficaram em producao continuam precisando de aprovacao, e sem
+    /// conseguir criar uma aqui esse caminho ficaria sem teste nenhum.
+    /// </summary>
+    public async Task<Guid> ContaPendenteHerdadaAsync(string usuario, string senha, string nome)
+    {
+        using var escopo = Services.CreateScope();
+        var db = escopo.ServiceProvider.GetRequiredService<AtendimentoDbContext>();
+
+        var profissional = new Profissional
+        {
+            Usuario = usuario,
+            Nome = nome,
+            Funcao = FuncaoProfissional.Enfermeiro,
+            ConselhoTipo = ConselhoTipo.Coren,
+            Registro = "10101",
+            SenhaHash = BCrypt.Net.BCrypt.HashPassword(senha),
+            Status = StatusConta.Pendente
+        };
+
+        db.Profissionais.Add(profissional);
+        await db.SaveChangesAsync();
+
+        return profissional.Id;
+    }
+
+    /// <summary>Entra com a provisoria e troca por <see cref="SenhaDoTeste"/>.</summary>
+    private async Task TrocarSenhaAsync(string usuario, string senhaProvisoria)
+    {
+        var client = CreateClient();
+
+        var entrada = await client.PostAsJsonAsync("/api/auth/login", new
+        {
+            usuario,
+            senha = senhaProvisoria,
+            idioma = "Pt"
+        }, JsonFixture);
+
+        entrada.EnsureSuccessStatusCode();
+
+        var login = await entrada.Content.ReadFromJsonAsync<LoginResponse>(JsonFixture);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
+
+        (await client.PostAsJsonAsync("/api/auth/trocar-senha", new
+        {
+            senhaAtual = senhaProvisoria,
+            novaSenha = SenhaDoTeste,
+            confirmacaoSenha = SenhaDoTeste
+        }, JsonFixture)).EnsureSuccessStatusCode();
+    }
 }
 
 /// <summary>
@@ -102,73 +260,19 @@ public class FluxoAtendimentoTests
     public FluxoAtendimentoTests(ApiFixture fixture) => _fixture = fixture;
 
     /// <summary>Entra como o administrador inicial, criado a partir da configuracao.</summary>
-    private async Task<HttpClient> AutenticarAdministradorAsync()
-    {
-        var client = _fixture.CreateClient();
-
-        var resposta = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            usuario = ApiFixture.AdminUsuario,
-            senha = ApiFixture.AdminSenha,
-            idioma = "Pt"
-        }, Json);
-
-        resposta.EnsureSuccessStatusCode();
-
-        var login = await resposta.Content.ReadFromJsonAsync<LoginResponse>(Json);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
-
-        return client;
-    }
+    private Task<HttpClient> AutenticarAdministradorAsync()
+        => _fixture.ClienteDoAdministradorAsync();
 
     /// <summary>
-    /// Registra a conta, aprova pelo administrador e entra. E o caminho completo
-    /// que qualquer profissional percorre antes de conseguir usar o sistema.
+    /// Caminho completo de entrada: a coordenacao cadastra, o sistema sorteia a
+    /// senha, a pessoa entra e troca.
     /// </summary>
-    private async Task<HttpClient> AutenticarAsync(
+    private Task<HttpClient> AutenticarAsync(
         string usuario = "claudia.luz",
         string nome = "Claudia Candido da Luz",
         FuncaoProfissional funcao = FuncaoProfissional.Enfermeiro,
         string registro = "52728")
-    {
-        var client = _fixture.CreateClient();
-        const string senha = "plantao-2026";
-
-        var registroResposta = await client.PostAsJsonAsync("/api/auth/registrar", new
-        {
-            usuario,
-            nome,
-            funcao = funcao.ToString(),
-            registro,
-            senha,
-            confirmacaoSenha = senha,
-            idioma = "Pt"
-        }, Json);
-
-        // Ja registrado por outro teste da suite: segue para a aprovacao.
-        if (registroResposta.IsSuccessStatusCode)
-        {
-            var criado = await registroResposta.Content.ReadFromJsonAsync<ProfissionalDto>(Json);
-
-            var admin = await AutenticarAdministradorAsync();
-            (await admin.PostAsJsonAsync($"/api/profissionais/{criado!.Id}/aprovar", new { }, Json))
-                .EnsureSuccessStatusCode();
-        }
-
-        var resposta = await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            usuario,
-            senha,
-            idioma = "Pt"
-        }, Json);
-
-        resposta.EnsureSuccessStatusCode();
-
-        var login = await resposta.Content.ReadFromJsonAsync<LoginResponse>(Json);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
-
-        return client;
-    }
+        => _fixture.ClienteDeAsync(usuario, nome, funcao, registro);
 
     /// <summary>Codigo livre para o paciente, como a tela faz antes de cadastrar.</summary>
     private static async Task<string> CodigoNovoAsync(HttpClient client)

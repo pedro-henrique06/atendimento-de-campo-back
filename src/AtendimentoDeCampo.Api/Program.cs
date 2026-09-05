@@ -42,6 +42,7 @@ builder.Services.AddScoped<ServicoAtendimento>();
 builder.Services.AddScoped<ServicoAutenticacao>();
 builder.Services.AddScoped<ServicoBases>();
 builder.Services.AddScoped<ServicoProfissionais>();
+builder.Services.AddScoped<ServicoRelatorios>();
 
 builder.Services
     .AddControllers()
@@ -154,6 +155,44 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors(PoliticaCors);
 app.UseAuthentication();
+
+/*
+    Enquanto a senha for a provisoria que a coordenacao entregou, a conta entra
+    mas nao faz mais nada alem de troca-la.
+
+    Isso e o que fecha o buraco aberto por a coordenacao criar as contas: ate a
+    troca, mais de uma pessoa conhece aquela senha, e um ato clinico gravado
+    nesse intervalo nao esta atribuido com seguranca a ninguem.
+
+    E middleware, e nao filtro nem atributo, de proposito: assim vale para todo
+    controller que existir depois, sem depender de alguem lembrar de marcar.
+*/
+app.Use(async (ctx, next) =>
+{
+    var precisaTrocar = ctx.User.HasClaim(Claims.PrecisaTrocarSenha, "true");
+    var caminho = ctx.Request.Path;
+
+    var liberado =
+        caminho.StartsWithSegments("/api/auth") ||
+        caminho.StartsWithSegments("/health");
+
+    if (precisaTrocar && !liberado)
+    {
+        ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await ctx.Response.WriteAsJsonAsync(new
+        {
+            // Codigo, e nao frase pronta: quem traduz e a interface, no idioma
+            // de quem esta lendo.
+            motivo = nameof(Claims.PrecisaTrocarSenha),
+            erros = new[] { "Troque a senha provisoria antes de usar o sistema." }
+        });
+
+        return;
+    }
+
+    await next();
+});
+
 app.UseAuthorization();
 app.MapControllers();
 

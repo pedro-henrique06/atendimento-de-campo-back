@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AtendimentoDeCampo.Api.Contratos;
+using AtendimentoDeCampo.Domain;
 
 namespace AtendimentoDeCampo.Tests;
 
@@ -24,48 +25,9 @@ public class PacienteQueRetornaTests
 
     public PacienteQueRetornaTests(ApiFixture fixture) => _fixture = fixture;
 
-    private async Task<HttpClient> AutenticarAsync()
-    {
-        var client = _fixture.CreateClient();
-        const string senha = "plantao-2026";
-        const string usuario = "retorno.teste";
-
-        var registro = await client.PostAsJsonAsync("/api/auth/registrar", new
-        {
-            usuario,
-            nome = "Retorno Teste",
-            funcao = "Enfermeiro",
-            registro = "99881",
-            senha,
-            confirmacaoSenha = senha,
-            idioma = "Pt"
-        }, Json);
-
-        if (registro.IsSuccessStatusCode)
-        {
-            var criado = await registro.Content.ReadFromJsonAsync<ProfissionalDto>(Json);
-            var admin = _fixture.CreateClient();
-
-            var login = await (await admin.PostAsJsonAsync("/api/auth/login", new
-            {
-                usuario = ApiFixture.AdminUsuario,
-                senha = ApiFixture.AdminSenha,
-                idioma = "Pt"
-            }, Json)).Content.ReadFromJsonAsync<LoginResponse>(Json);
-
-            admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
-            (await admin.PostAsJsonAsync($"/api/profissionais/{criado!.Id}/aprovar", new { }, Json))
-                .EnsureSuccessStatusCode();
-        }
-
-        var entrada = await client.PostAsJsonAsync("/api/auth/login", new { usuario, senha, idioma = "Pt" }, Json);
-        entrada.EnsureSuccessStatusCode();
-
-        var sessao = await entrada.Content.ReadFromJsonAsync<LoginResponse>(Json);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", sessao!.Token);
-
-        return client;
-    }
+    private Task<HttpClient> AutenticarAsync()
+        => _fixture.ClienteDeAsync(
+            "retorno.teste", "Retorno Teste", FuncaoProfissional.Enfermeiro, "99881");
 
     private static async Task<Guid> BaseAsync(HttpClient client)
     {

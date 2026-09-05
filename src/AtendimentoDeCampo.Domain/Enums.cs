@@ -8,14 +8,29 @@ public enum Idioma
 }
 
 /// <summary>
-/// Cargo do profissional. Eixo separado de <see cref="Especialidade"/>.
+/// Profissao de quem opera o sistema. Eixo separado de <see cref="Especialidade"/>.
 /// CORRIGE: no sistema de referencia a "area" misturava especialidade
 /// (Clinica Geral, Odontologia) com cargo (Medico, Psicologo, Enfermagem),
 /// o que impedia qualquer leitura confiavel de producao por area.
+///
+/// E a profissao que decide em que fila a pessoa cai — ver
+/// <see cref="Servicos.FilasDaFuncao"/>. Por isso as especialidades medicas
+/// aparecem aqui separadas: o diagrama do fluxo tem clinica geral, pediatria e
+/// ortopedia como filas distintas, e um "medico" generico cairia nas tres, o
+/// que nao e "a fila dele".
+///
+/// Os valores sao gravados como inteiro: novos membros entram no fim, nunca no
+/// meio, senao as contas ja gravadas mudam de profissao sozinhas.
 /// </summary>
 public enum FuncaoProfissional
 {
+    /// <summary>
+    /// Medico sem especialidade declarada. Mantido para as contas criadas antes
+    /// das especialidades existirem — ve as tres filas medicas ate a
+    /// coordenacao reclassificar. Nao oferecer em cadastro novo.
+    /// </summary>
     Medico = 0,
+
     Enfermeiro = 1,
     TecnicoEnfermagem = 2,
     Dentista = 3,
@@ -24,7 +39,11 @@ public enum FuncaoProfissional
     Farmaceutico = 6,
     Recepcao = 7,
     Coordenacao = 8,
-    Outro = 9
+    Outro = 9,
+
+    ClinicoGeral = 10,
+    Pediatra = 11,
+    Ortopedista = 12
 }
 
 public enum ConselhoTipo
@@ -318,5 +337,14 @@ public enum AcaoAuditoria
     LiberouEtapa = 9,
 
     /// <summary>Mandou o paciente para outra fila.</summary>
-    EncaminhouParaOutraFila = 10
+    EncaminhouParaOutraFila = 10,
+
+    /// <summary>
+    /// Assumiu um paciente numa fila que nao e da sua profissao.
+    ///
+    /// E permitido de proposito: em campo a equipe e curta e as funcoes se
+    /// cobrem — o medico tria quando a fila estoura. Fica registrado porque a
+    /// excecao precisa deixar rastro para valer como excecao.
+    /// </summary>
+    AssumiuForaDaSuaFila = 11
 }

@@ -789,8 +789,27 @@ public sealed class ServicoAtendimento
         etapa.Status = StatusEtapa.EmAndamento;
         etapa.IniciadaEm ??= DateTime.UtcNow;
 
-        await _auditoria.RegistrarAsync(
-            atendimentoId, profissionalId, AcaoAuditoria.AssumiuEtapa, especialidade, ct);
+        /*
+            Atender fora da propria fila e permitido: em campo a equipe e curta e
+            as funcoes se cobrem — o medico tria quando a fila estoura. Mas fica
+            marcado, porque uma excecao sem rastro nao e excecao, e virar rotina
+            silenciosa e exatamente o que a fila por profissao veio evitar.
+
+            O rastro esta no ato, e nao em abrir a aba. Com a lista se atualizando
+            sozinha a cada quinze segundos, registrar a consulta produziria uma
+            linha de auditoria por quarto de minuto e enterraria o que importa.
+        */
+        var funcao = await _db.Profissionais
+            .AsNoTracking()
+            .Where(p => p.Id == profissionalId)
+            .Select(p => (FuncaoProfissional?)p.Funcao)
+            .FirstOrDefaultAsync(ct);
+
+        var acao = funcao is not null && !FilasDaFuncao.EhDaFuncao(funcao.Value, especialidade)
+            ? AcaoAuditoria.AssumiuForaDaSuaFila
+            : AcaoAuditoria.AssumiuEtapa;
+
+        await _auditoria.RegistrarAsync(atendimentoId, profissionalId, acao, especialidade, ct);
 
         await _db.SaveChangesAsync(ct);
 

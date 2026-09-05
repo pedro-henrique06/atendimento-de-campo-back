@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AtendimentoDeCampo.Api.Contratos;
+using AtendimentoDeCampo.Domain;
 
 namespace AtendimentoDeCampo.Tests;
 
@@ -24,52 +25,12 @@ public class BasesTests
 
     public BasesTests(ApiFixture fixture) => _fixture = fixture;
 
-    private async Task<HttpClient> AdministradorAsync()
-    {
-        var client = _fixture.CreateClient();
+    private Task<HttpClient> AdministradorAsync()
+        => _fixture.ClienteDoAdministradorAsync();
 
-        var login = await (await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            usuario = ApiFixture.AdminUsuario,
-            senha = ApiFixture.AdminSenha,
-            idioma = "Pt"
-        }, Json)).Content.ReadFromJsonAsync<LoginResponse>(Json);
-
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
-        return client;
-    }
-
-    private async Task<HttpClient> EnfermeiroAsync()
-    {
-        var client = _fixture.CreateClient();
-        const string senha = "plantao-2026";
-        const string usuario = "bases.enfermeiro";
-
-        var registro = await client.PostAsJsonAsync("/api/auth/registrar", new
-        {
-            usuario,
-            nome = "Bases Enfermeiro",
-            funcao = "Enfermeiro",
-            registro = "77123",
-            senha,
-            confirmacaoSenha = senha,
-            idioma = "Pt"
-        }, Json);
-
-        if (registro.IsSuccessStatusCode)
-        {
-            var criado = await registro.Content.ReadFromJsonAsync<ProfissionalDto>(Json);
-            var admin = await AdministradorAsync();
-            (await admin.PostAsJsonAsync($"/api/profissionais/{criado!.Id}/aprovar", new { }, Json))
-                .EnsureSuccessStatusCode();
-        }
-
-        var login = await (await client.PostAsJsonAsync("/api/auth/login",
-            new { usuario, senha, idioma = "Pt" }, Json)).Content.ReadFromJsonAsync<LoginResponse>(Json);
-
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
-        return client;
-    }
+    private Task<HttpClient> EnfermeiroAsync()
+        => _fixture.ClienteDeAsync(
+            "bases.enfermeiro", "Bases Enfermeiro", FuncaoProfissional.Enfermeiro, "77123");
 
     private static async Task<BaseAdminDto> CriarAsync(HttpClient client, string nome, string? prefixo = null)
     {

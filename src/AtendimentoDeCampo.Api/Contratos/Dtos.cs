@@ -20,10 +20,13 @@ public sealed record LoginRequest
 }
 
 /// <summary>
-/// Registro de nova conta. A conta nasce pendente e nao acessa nada ate um
-/// administrador aprovar.
+/// Cadastro de profissional, preenchido pela coordenacao.
+///
+/// Nao ha senha aqui de proposito: quem cadastra nao escolhe a senha de outra
+/// pessoa. O sistema sorteia uma senha provisoria, devolve uma unica vez em
+/// <see cref="ContaCriadaDto"/> e obriga a troca no primeiro acesso.
 /// </summary>
-public sealed record RegistroRequest
+public sealed record CriarContaRequest
 {
     [Required, MaxLength(40)]
     public string Usuario { get; init; } = string.Empty;
@@ -34,19 +37,44 @@ public sealed record RegistroRequest
     [EmailAddress, MaxLength(200)]
     public string? Email { get; init; }
 
+    /// <summary>Decide em que fila a pessoa cai. Ver <c>FilasDaFuncao</c>.</summary>
     [Required]
     public FuncaoProfissional Funcao { get; init; }
 
     [MaxLength(40)]
     public string? Registro { get; init; }
 
+    public Idioma Idioma { get; init; } = Idioma.Pt;
+}
+
+/// <summary>
+/// Conta recem-criada e a senha do primeiro acesso.
+///
+/// A senha aparece so nesta resposta: nao ha como consulta-la depois, porque so
+/// o hash e gravado. Se ela se perder, a coordenacao sorteia outra.
+/// </summary>
+public sealed record ContaCriadaDto(ProfissionalDto Profissional, string SenhaProvisoria);
+
+public sealed record AlterarProfissaoRequest
+{
     [Required]
-    public string Senha { get; init; } = string.Empty;
+    public FuncaoProfissional Funcao { get; init; }
+
+    [MaxLength(40)]
+    public string? Registro { get; init; }
+}
+
+/// <summary>Troca da propria senha. Obrigatoria no primeiro acesso.</summary>
+public sealed record TrocarSenhaRequest
+{
+    [Required]
+    public string SenhaAtual { get; init; } = string.Empty;
+
+    [Required]
+    public string NovaSenha { get; init; } = string.Empty;
 
     [Required]
     public string ConfirmacaoSenha { get; init; } = string.Empty;
-
-    public Idioma Idioma { get; init; } = Idioma.Pt;
 }
 
 public sealed record LoginResponse(string Token, DateTime ExpiraEm, ProfissionalDto Profissional);
@@ -65,11 +93,19 @@ public sealed record ProfissionalDto(
     string? MotivoRecusa,
     DateTime CriadoEm,
     /// <summary>
-    /// Filas que interessam a esta funcao, na ordem em que a tela deve
-    /// oferece-las. A primeira e a que abre por padrao. Nao e permissao: a
-    /// pessoa continua podendo ver "Todas".
+    /// Filas da profissao, na ordem em que a tela deve oferece-las. A primeira e
+    /// a que abre por padrao.
+    ///
+    /// Nao e tranca: ver e agir fora dela continua possivel, porque em campo as
+    /// funcoes se cobrem. O que muda e o rastro — assumir um paciente fora daqui
+    /// fica gravado no historico do atendimento.
     /// </summary>
-    List<Especialidade> Filas);
+    List<Especialidade> Filas,
+    /// <summary>
+    /// A senha ainda e a provisoria que a coordenacao entregou. Enquanto for
+    /// verdadeiro, a unica coisa que a pessoa pode fazer e troca-la.
+    /// </summary>
+    bool PrecisaTrocarSenha);
 
 public sealed record RecusarContaRequest
 {
@@ -223,6 +259,24 @@ public sealed record PacienteDto(
     List<Vulnerabilidade> Vulnerabilidades,
     bool ConsentimentoRegistro);
 
+/// <summary>
+/// Quem assinou o ato clinico.
+///
+/// O nome sozinho nao basta numa ficha: o registro no conselho e o que
+/// identifica a pessoa fora do sistema — e e o que a equipe, a auditoria e o
+/// servico de referencia procuram quando precisam saber quem atendeu.
+/// </summary>
+public sealed record AutorDto(string Nome, ConselhoTipo Conselho, string? Registro);
+
+/// <summary>
+/// Etapa vista de fora, para a lista e para o prontuario saberem que fila esta
+/// aberta e com quem.
+/// </summary>
+/// <remarks>
+/// <c>Profissional</c> e so o nome, de proposito: aqui ele diz quem esta com o
+/// paciente agora, e a tela compara com o nome de quem esta olhando. Assinatura
+/// e outra coisa e mora nas fichas, em <see cref="AutorDto"/>.
+/// </remarks>
 public sealed record EtapaResumoDto(
     Guid Id,
     Especialidade Especialidade,
@@ -345,7 +399,7 @@ public sealed record SugestaoStartDto(ClassificacaoRisco Sugerida, string Motivo
 
 public sealed record TriagemDto(
     Guid EtapaId,
-    string? Profissional,
+    AutorDto? Profissional,
     int? PressaoSistolica,
     int? PressaoDiastolica,
     int? FrequenciaCardiaca,
@@ -434,7 +488,7 @@ public sealed record DispensacaoDto(
 public sealed record ConsultaDto(
     Guid EtapaId,
     Especialidade Especialidade,
-    string? Profissional,
+    AutorDto? Profissional,
     string? SintomasDescricao,
     string? Cid10Codigo,
     string? Cid10Descricao,
@@ -483,7 +537,7 @@ public sealed record MarcacaoDenteDto(int Dente, EstadoDente Estado, List<FaceDe
 
 public sealed record OdontologiaDto(
     Guid EtapaId,
-    string? Profissional,
+    AutorDto? Profissional,
     string? Queixa,
     string? Cid10Codigo,
     string? Cid10Descricao,
@@ -515,7 +569,7 @@ public sealed record RegistrarEnfermagemRequest
 
 public sealed record EnfermagemDto(
     Guid EtapaId,
-    string? Profissional,
+    AutorDto? Profissional,
     List<ProcedimentoEnfermagem> Procedimentos,
     string? OutroProcedimento,
     string? Observacoes,
@@ -552,3 +606,30 @@ public sealed record FinalizarAtendimentoRequest
     [MaxLength(300)]
     public string? Justificativa { get; init; }
 }
+
+// ---------------------------------------------------------------------------
+// Relatorios
+// ---------------------------------------------------------------------------
+
+public sealed record ProducaoPorFilaDto(
+    Especialidade Especialidade,
+    int Atendimentos,
+    int MinutosTotais);
+
+/// <summary>
+/// Producao de um profissional no periodo.
+///
+/// Conta etapas concluidas, e nao pacientes: quem viu a mesma pessoa na triagem
+/// e depois na enfermagem fez dois atendimentos, porque foram dois atos.
+/// </summary>
+public sealed record ProducaoProfissionalDto(
+    Guid ProfissionalId,
+    string Nome,
+    FuncaoProfissional Funcao,
+    ConselhoTipo Conselho,
+    string? Registro,
+    int Atendimentos,
+    int MinutosTotais,
+    /// <summary>Mediana, e nao media: uma ficha esquecida aberta deformaria a media.</summary>
+    int? MinutosMedianos,
+    List<ProducaoPorFilaDto> PorFila);
