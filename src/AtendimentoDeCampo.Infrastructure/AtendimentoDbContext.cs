@@ -72,6 +72,13 @@ public class AtendimentoDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.RevisadoPorId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Quem criou a conta, pela mesma razao: e informacao de quem
+            // respondeu por aquele acesso.
+            e.HasOne(x => x.CriadaPor)
+                .WithMany()
+                .HasForeignKey(x => x.CriadaPorId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 

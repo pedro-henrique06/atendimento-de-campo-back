@@ -20,10 +20,13 @@ public sealed record LoginRequest
 }
 
 /// <summary>
-/// Registro de nova conta. A conta nasce pendente e nao acessa nada ate um
-/// administrador aprovar.
+/// Cadastro de profissional, preenchido pela coordenacao.
+///
+/// Nao ha senha aqui de proposito: quem cadastra nao escolhe a senha de outra
+/// pessoa. O sistema sorteia uma senha provisoria, devolve uma unica vez em
+/// <see cref="ContaCriadaDto"/> e obriga a troca no primeiro acesso.
 /// </summary>
-public sealed record RegistroRequest
+public sealed record CriarContaRequest
 {
     [Required, MaxLength(40)]
     public string Usuario { get; init; } = string.Empty;
@@ -34,19 +37,44 @@ public sealed record RegistroRequest
     [EmailAddress, MaxLength(200)]
     public string? Email { get; init; }
 
+    /// <summary>Decide em que fila a pessoa cai. Ver <c>FilasDaFuncao</c>.</summary>
     [Required]
     public FuncaoProfissional Funcao { get; init; }
 
     [MaxLength(40)]
     public string? Registro { get; init; }
 
+    public Idioma Idioma { get; init; } = Idioma.Pt;
+}
+
+/// <summary>
+/// Conta recem-criada e a senha do primeiro acesso.
+///
+/// A senha aparece so nesta resposta: nao ha como consulta-la depois, porque so
+/// o hash e gravado. Se ela se perder, a coordenacao sorteia outra.
+/// </summary>
+public sealed record ContaCriadaDto(ProfissionalDto Profissional, string SenhaProvisoria);
+
+public sealed record AlterarProfissaoRequest
+{
     [Required]
-    public string Senha { get; init; } = string.Empty;
+    public FuncaoProfissional Funcao { get; init; }
+
+    [MaxLength(40)]
+    public string? Registro { get; init; }
+}
+
+/// <summary>Troca da propria senha. Obrigatoria no primeiro acesso.</summary>
+public sealed record TrocarSenhaRequest
+{
+    [Required]
+    public string SenhaAtual { get; init; } = string.Empty;
+
+    [Required]
+    public string NovaSenha { get; init; } = string.Empty;
 
     [Required]
     public string ConfirmacaoSenha { get; init; } = string.Empty;
-
-    public Idioma Idioma { get; init; } = Idioma.Pt;
 }
 
 public sealed record LoginResponse(string Token, DateTime ExpiraEm, ProfissionalDto Profissional);
@@ -65,11 +93,19 @@ public sealed record ProfissionalDto(
     string? MotivoRecusa,
     DateTime CriadoEm,
     /// <summary>
-    /// Filas que interessam a esta funcao, na ordem em que a tela deve
-    /// oferece-las. A primeira e a que abre por padrao. Nao e permissao: a
-    /// pessoa continua podendo ver "Todas".
+    /// Filas da profissao, na ordem em que a tela deve oferece-las. A primeira e
+    /// a que abre por padrao.
+    ///
+    /// Nao e tranca: ver e agir fora dela continua possivel, porque em campo as
+    /// funcoes se cobrem. O que muda e o rastro — assumir um paciente fora daqui
+    /// fica gravado no historico do atendimento.
     /// </summary>
-    List<Especialidade> Filas);
+    List<Especialidade> Filas,
+    /// <summary>
+    /// A senha ainda e a provisoria que a coordenacao entregou. Enquanto for
+    /// verdadeiro, a unica coisa que a pessoa pode fazer e troca-la.
+    /// </summary>
+    bool PrecisaTrocarSenha);
 
 public sealed record RecusarContaRequest
 {

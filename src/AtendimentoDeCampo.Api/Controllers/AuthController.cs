@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AtendimentoDeCampo.Api.Contratos;
 using AtendimentoDeCampo.Api.Servicos;
 using Microsoft.AspNetCore.Authorization;
@@ -15,23 +16,24 @@ public class AuthController : ControllerBase
     public AuthController(ServicoAutenticacao servico) => _servico = servico;
 
     /// <summary>
-    /// Cria uma conta. Ela nasce pendente: quem se registra nao acessa nada ate
-    /// um administrador aprovar.
+    /// Troca a propria senha. Unica rota liberada enquanto a senha ainda e a
+    /// provisoria que a coordenacao entregou.
     /// </summary>
-    [HttpPost("registrar")]
-    public async Task<ActionResult<ProfissionalDto>> Registrar(
-        [FromBody] RegistroRequest req,
+    [Authorize]
+    [HttpPost("trocar-senha")]
+    public async Task<ActionResult<LoginResponse>> TrocarSenha(
+        [FromBody] TrocarSenhaRequest req,
         CancellationToken ct)
-        => Ok(await _servico.RegistrarAsync(req, ct));
+    {
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
 
-    /// <summary>Consulta se um usuario esta livre, enquanto a pessoa digita.</summary>
-    [HttpGet("usuario-disponivel")]
-    public async Task<ActionResult<UsuarioDisponivelResponse>> UsuarioDisponivel(
-        [FromQuery] string usuario,
-        CancellationToken ct)
-        => Ok(new UsuarioDisponivelResponse(
-            usuario,
-            await _servico.UsuarioDisponivelAsync(usuario, ct)));
+        if (!Guid.TryParse(sub, out var id))
+        {
+            throw new RegraDeNegocioException("Token sem identificacao do profissional.");
+        }
+
+        return Ok(await _servico.TrocarSenhaAsync(id, req, ct));
+    }
 
     [HttpPost("login")]
     public async Task<ActionResult<LoginResponse>> Login(

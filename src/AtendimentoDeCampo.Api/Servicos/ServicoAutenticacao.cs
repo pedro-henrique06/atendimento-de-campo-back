@@ -26,17 +26,17 @@ public sealed record ResultadoLogin(
     string? Detalhe = null);
 
 /// <summary>
-/// Autenticacao e registro.
+/// Autenticacao.
 ///
-/// Os dois fluxos sao separados e explicitos. Antes eram o mesmo: se o nome nao
-/// existisse e a senha batesse com a da equipe, a conta era criada em silencio —
-/// o que fazia um erro de digitacao no nome virar uma conta nova em vez de um
-/// erro de login.
+/// Nao existe auto-registro: a conta e criada pela coordenacao
+/// (<see cref="ServicoProfissionais.CriarAsync"/>) e ja nasce ativa, porque quem
+/// cria e quem aprovaria. Num prontuario isso e o que sustenta a atribuicao —
+/// cada ato clinico fica no nome de uma pessoa, e o cadastro e o momento em que
+/// alguem responde por essa pessoa ser quem diz ser.
 ///
-/// Agora quem se registra fica <see cref="StatusConta.Pendente"/> e nao acessa
-/// nada ate um administrador aprovar. Num prontuario isso vale o atrito: cada
-/// ato clinico fica atribuido a uma pessoa, e a aprovacao e o momento em que
-/// alguem confirma que essa pessoa e quem diz ser.
+/// A senha do primeiro acesso e sorteada e a coordenacao a conhece. Por isso
+/// existe <see cref="Profissional.PrecisaTrocarSenha"/>: ate a troca a conta
+/// entra, mas nao faz mais nada.
 /// </summary>
 public sealed class ServicoAutenticacao
 {
@@ -50,31 +50,46 @@ public sealed class ServicoAutenticacao
     }
 
     // -----------------------------------------------------------------------
-    // Registro
+    // Troca de senha
     // -----------------------------------------------------------------------
 
-    public async Task<ProfissionalDto> RegistrarAsync(RegistroRequest req, CancellationToken ct = default)
+    /// <summary>
+    /// Troca a propria senha. Exige a atual mesmo quando a pessoa ja esta
+    /// autenticada: sem isso, um aparelho deixado destravado no meio do plantao
+    /// vira uma conta tomada.
+    /// </summary>
+    /// <remarks>
+    /// Devolve um token novo porque o antigo carrega
+    /// <c>precisa_trocar_senha</c>, e e essa claim que o gate do
+    /// <c>Program.cs</c> usa para barrar o resto da API. Sem trocar o token, a
+    /// pessoa trocaria a senha e continuaria presa na mesma tela.
+    /// </remarks>
+    public async Task<LoginResponse> TrocarSenhaAsync(
+        Guid profissionalId,
+        TrocarSenhaRequest req,
+        CancellationToken ct = default)
     {
-        var usuario = NomeDeUsuario.Normalizar(req.Usuario);
-        var erros = new List<string>(NomeDeUsuario.Validar(req.Usuario));
+        var profissional = await _db.Profissionais.FirstOrDefaultAsync(p => p.Id == profissionalId, ct)
+            ?? throw new RegraDeNegocioException("Profissional nao encontrado.");
 
-        erros.AddRange(PoliticaDeSenha.Validar(req.Senha, usuario, req.Nome));
+        if (!BCrypt.Net.BCrypt.Verify(req.SenhaAtual, profissional.SenhaHash))
+        {
+            throw new RegraDeNegocioException("A senha atual esta incorreta.");
+        }
 
-        if (req.Senha != req.ConfirmacaoSenha)
+        var erros = new List<string>(
+            PoliticaDeSenha.Validar(req.NovaSenha, profissional.Usuario, profissional.Nome));
+
+        if (req.NovaSenha != req.ConfirmacaoSenha)
         {
             erros.Add("As senhas nao conferem.");
         }
 
-        if (string.IsNullOrWhiteSpace(req.Nome) || req.Nome.Trim().Length < 3)
+        // Repetir a provisoria deixaria a conta exatamente onde estava: com a
+        // coordenacao sabendo a senha.
+        if (BCrypt.Net.BCrypt.Verify(req.NovaSenha, profissional.SenhaHash))
         {
-            erros.Add("Informe o nome completo.");
-        }
-
-        var conselho = ConselhoPara(req.Funcao);
-
-        if (conselho != ConselhoTipo.Nenhum && string.IsNullOrWhiteSpace(req.Registro))
-        {
-            erros.Add($"Registro no {conselho} e obrigatorio para esta funcao.");
+            erros.Add("A nova senha precisa ser diferente da atual.");
         }
 
         if (erros.Count > 0)
@@ -82,41 +97,14 @@ public sealed class ServicoAutenticacao
             throw new RegraDeNegocioException(erros);
         }
 
-        if (await _db.Profissionais.AnyAsync(p => p.Usuario == usuario, ct))
-        {
-            throw new RegraDeNegocioException("Este usuario ja esta em uso. Escolha outro.");
-        }
+        profissional.SenhaHash = BCrypt.Net.BCrypt.HashPassword(req.NovaSenha);
+        profissional.PrecisaTrocarSenha = false;
 
-        var profissional = new Profissional
-        {
-            Usuario = usuario,
-            Nome = req.Nome.Trim(),
-            Email = string.IsNullOrWhiteSpace(req.Email) ? null : req.Email.Trim(),
-            Funcao = req.Funcao,
-            ConselhoTipo = conselho,
-            Registro = req.Registro?.Trim(),
-            SenhaHash = BCrypt.Net.BCrypt.HashPassword(req.Senha),
-            Idioma = req.Idioma,
-            Status = StatusConta.Pendente
-        };
-
-        _db.Profissionais.Add(profissional);
         await _db.SaveChangesAsync(ct);
 
-        return ParaDto(profissional);
-    }
+        var (token, expira) = GerarToken(profissional);
 
-    /// <summary>Verifica disponibilidade do usuario enquanto a pessoa digita.</summary>
-    public async Task<bool> UsuarioDisponivelAsync(string usuario, CancellationToken ct = default)
-    {
-        var normalizado = NomeDeUsuario.Normalizar(usuario);
-
-        if (NomeDeUsuario.Validar(usuario).Count > 0)
-        {
-            return false;
-        }
-
-        return !await _db.Profissionais.AnyAsync(p => p.Usuario == normalizado, ct);
+        return new LoginResponse(token, expira, ParaDto(profissional));
     }
 
     // -----------------------------------------------------------------------
@@ -174,10 +162,13 @@ public sealed class ServicoAutenticacao
     // Apoio
     // -----------------------------------------------------------------------
 
-    /// <summary>Conselho profissional esperado para cada funcao.</summary>
+    /// <summary>Conselho profissional esperado para cada profissao.</summary>
     public static ConselhoTipo ConselhoPara(FuncaoProfissional funcao) => funcao switch
     {
         FuncaoProfissional.Medico => ConselhoTipo.Crm,
+        FuncaoProfissional.ClinicoGeral => ConselhoTipo.Crm,
+        FuncaoProfissional.Pediatra => ConselhoTipo.Crm,
+        FuncaoProfissional.Ortopedista => ConselhoTipo.Crm,
         FuncaoProfissional.Enfermeiro => ConselhoTipo.Coren,
         FuncaoProfissional.TecnicoEnfermagem => ConselhoTipo.Coren,
         FuncaoProfissional.Dentista => ConselhoTipo.Cro,
@@ -200,7 +191,8 @@ public sealed class ServicoAutenticacao
         p.EhAdministrador,
         p.MotivoRecusa,
         p.CriadoEm,
-        FilasDaFuncao.De(p.Funcao).ToList());
+        FilasDaFuncao.De(p.Funcao).ToList(),
+        p.PrecisaTrocarSenha);
 
     private (string Token, DateTime Expira) GerarToken(Profissional profissional)
     {
@@ -226,6 +218,13 @@ public sealed class ServicoAutenticacao
             claims.Add(new Claim(ClaimTypes.Role, Papeis.Administrador));
         }
 
+        // Enquanto a senha for a provisoria que a coordenacao entregou, o token
+        // carrega a marca e o gate no Program.cs recusa tudo menos a troca.
+        if (profissional.PrecisaTrocarSenha)
+        {
+            claims.Add(new Claim(Claims.PrecisaTrocarSenha, "true"));
+        }
+
         var credenciais = new SigningCredentials(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(chave)),
             SecurityAlgorithms.HmacSha256);
@@ -245,4 +244,11 @@ public sealed class ServicoAutenticacao
 public static class Papeis
 {
     public const string Administrador = "Administrador";
+}
+
+/// <summary>Claims proprias do token, alem das padrao do JWT.</summary>
+public static class Claims
+{
+    /// <summary>A senha ainda e a provisoria. Ver o gate no <c>Program.cs</c>.</summary>
+    public const string PrecisaTrocarSenha = "precisa_trocar_senha";
 }

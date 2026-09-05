@@ -27,50 +27,12 @@ public class EncaminhamentoTests
 
     public EncaminhamentoTests(ApiFixture fixture) => _fixture = fixture;
 
-    private async Task<HttpClient> ProfissionalAsync(string usuario = "encaminha.teste")
-    {
-        var client = _fixture.CreateClient();
-        const string senha = "plantao-2026";
-
-        var registro = await client.PostAsJsonAsync("/api/auth/registrar", new
-        {
-            usuario,
-            nome = "Encaminha Teste",
-            funcao = "Medico",
-            registro = "44221",
-            senha,
-            confirmacaoSenha = senha,
-            idioma = "Pt"
-        }, Json);
-
-        if (registro.IsSuccessStatusCode)
-        {
-            var criado = await registro.Content.ReadFromJsonAsync<ProfissionalDto>(Json);
-            var admin = _fixture.CreateClient();
-
-            var entradaAdmin = await (await admin.PostAsJsonAsync("/api/auth/login", new
-            {
-                usuario = ApiFixture.AdminUsuario,
-                senha = ApiFixture.AdminSenha,
-                idioma = "Pt"
-            }, Json)).Content.ReadFromJsonAsync<LoginResponse>(Json);
-
-            admin.DefaultRequestHeaders.Authorization =
-                new AuthenticationHeaderValue("Bearer", entradaAdmin!.Token);
-            (await admin.PostAsJsonAsync($"/api/profissionais/{criado!.Id}/aprovar", new { }, Json))
-                .EnsureSuccessStatusCode();
-        }
-
-        var entrada = await client.PostAsJsonAsync("/api/auth/login",
-            new { usuario, senha, idioma = "Pt" }, Json);
-        entrada.EnsureSuccessStatusCode();
-
-        var sessao = await entrada.Content.ReadFromJsonAsync<LoginResponse>(Json);
-        client.DefaultRequestHeaders.Authorization =
-            new AuthenticationHeaderValue("Bearer", sessao!.Token);
-
-        return client;
-    }
+    /// <summary>
+    /// Coordenacao: ve todas as filas, entao encaminhar de qualquer uma nao
+    /// esbarra na fila da profissao — o que se testa aqui e o encaminhamento.
+    /// </summary>
+    private Task<HttpClient> ProfissionalAsync(string usuario = "encaminha.teste")
+        => _fixture.ClienteDeAsync(usuario, "Encaminha Teste", FuncaoProfissional.Coordenacao);
 
     private static async Task<ProntuarioDto> AbrirAsync(HttpClient client, string nome)
     {

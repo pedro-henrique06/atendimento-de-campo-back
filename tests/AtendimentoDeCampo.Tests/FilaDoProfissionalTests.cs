@@ -12,9 +12,11 @@ namespace AtendimentoDeCampo.Tests;
 public class FilasDaFuncaoTests
 {
     [Fact]
-    public void Cada_funcao_abre_na_fila_onde_ela_trabalha()
+    public void Cada_profissao_abre_na_fila_onde_ela_trabalha()
     {
-        Assert.Equal(Especialidade.ClinicaGeral, FilasDaFuncao.Padrao(FuncaoProfissional.Medico));
+        Assert.Equal(Especialidade.ClinicaGeral, FilasDaFuncao.Padrao(FuncaoProfissional.ClinicoGeral));
+        Assert.Equal(Especialidade.Pediatria, FilasDaFuncao.Padrao(FuncaoProfissional.Pediatra));
+        Assert.Equal(Especialidade.Ortopedia, FilasDaFuncao.Padrao(FuncaoProfissional.Ortopedista));
         Assert.Equal(Especialidade.Triagem, FilasDaFuncao.Padrao(FuncaoProfissional.Enfermeiro));
         Assert.Equal(Especialidade.Odontologia, FilasDaFuncao.Padrao(FuncaoProfissional.Dentista));
         Assert.Equal(Especialidade.SaudeMental, FilasDaFuncao.Padrao(FuncaoProfissional.Psicologo));
@@ -22,11 +24,34 @@ public class FilasDaFuncaoTests
     }
 
     [Fact]
-    public void O_medico_alcanca_a_triagem()
+    public void Cada_especialidade_medica_cai_numa_fila_so()
     {
-        // Nao e permissao: em campo a equipe e curta e as funcoes se cobrem.
-        // Quando a fila de triagem estoura, o medico tria.
-        Assert.Contains(Especialidade.Triagem, FilasDaFuncao.De(FuncaoProfissional.Medico));
+        // E o ponto da separacao. Um "medico" generico cairia em clinica geral,
+        // pediatria e ortopedia ao mesmo tempo, e "a fila dele" nao existiria.
+        Assert.Equal([Especialidade.ClinicaGeral], FilasDaFuncao.De(FuncaoProfissional.ClinicoGeral));
+        Assert.Equal([Especialidade.Pediatria], FilasDaFuncao.De(FuncaoProfissional.Pediatra));
+        Assert.Equal([Especialidade.Ortopedia], FilasDaFuncao.De(FuncaoProfissional.Ortopedista));
+    }
+
+    [Fact]
+    public void O_medico_sem_especialidade_ainda_alcanca_as_tres_filas_medicas()
+    {
+        // Conta criada antes das especialidades existirem. Estreitar aqui
+        // trancaria essa pessoa para fora do proprio trabalho no dia do deploy.
+        var filas = FilasDaFuncao.De(FuncaoProfissional.Medico);
+
+        Assert.Contains(Especialidade.ClinicaGeral, filas);
+        Assert.Contains(Especialidade.Pediatria, filas);
+        Assert.Contains(Especialidade.Ortopedia, filas);
+    }
+
+    [Fact]
+    public void A_enfermagem_tem_duas_filas_porque_comeca_triando()
+    {
+        var filas = FilasDaFuncao.De(FuncaoProfissional.Enfermeiro);
+
+        Assert.Equal(Especialidade.Triagem, filas[0]);
+        Assert.Contains(Especialidade.Enfermagem, filas);
     }
 
     [Fact]
@@ -41,12 +66,43 @@ public class FilasDaFuncaoTests
     }
 
     [Fact]
-    public void Nenhuma_funcao_fica_sem_fila()
+    public void Nenhuma_profissao_fica_sem_fila()
     {
         foreach (var funcao in Enum.GetValues<FuncaoProfissional>())
         {
             Assert.NotEmpty(FilasDaFuncao.De(funcao));
         }
+    }
+
+    [Fact]
+    public void Toda_fila_tem_alguma_profissao_que_a_atende()
+    {
+        // Uma fila sem profissao dona so aparece quando alguem cobre por acaso.
+        // Como o cadastro nao oferece "Coordenacao" e "Outro" para atender, sao
+        // as profissoes de cadastro que precisam cobrir o mapa.
+        foreach (var fila in Enum.GetValues<Especialidade>())
+        {
+            Assert.Contains(
+                FilasDaFuncao.ParaCadastro,
+                funcao => FilasDaFuncao.EhDaFuncao(funcao, fila));
+        }
+    }
+
+    [Fact]
+    public void Medico_sem_especialidade_nao_e_oferecido_em_cadastro_novo()
+    {
+        // Existe so para as contas anteriores. Oferecer recriaria o problema.
+        Assert.DoesNotContain(FuncaoProfissional.Medico, FilasDaFuncao.ParaCadastro);
+    }
+
+    [Fact]
+    public void Fila_de_fora_e_reconhecida_como_de_fora()
+    {
+        Assert.True(FilasDaFuncao.EhDaFuncao(FuncaoProfissional.Dentista, Especialidade.Odontologia));
+
+        // Nao impede nada — decide se o atendimento entra no historico como
+        // feito fora da propria fila.
+        Assert.False(FilasDaFuncao.EhDaFuncao(FuncaoProfissional.Dentista, Especialidade.ClinicaGeral));
     }
 }
 
@@ -67,55 +123,23 @@ public class AssumirEtapaTests
 
     public AssumirEtapaTests(ApiFixture fixture) => _fixture = fixture;
 
-    private async Task<HttpClient> AdministradorAsync()
-    {
-        var client = _fixture.CreateClient();
+    private Task<HttpClient> AdministradorAsync()
+        => _fixture.ClienteDoAdministradorAsync();
 
-        var login = await (await client.PostAsJsonAsync("/api/auth/login", new
-        {
-            usuario = ApiFixture.AdminUsuario,
-            senha = ApiFixture.AdminSenha,
-            idioma = "Pt"
-        }, Json)).Content.ReadFromJsonAsync<LoginResponse>(Json);
-
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
-        return client;
-    }
-
+    /// <summary>
+    /// Enfermeiro por padrao: a triagem, onde estes testes disputam o paciente,
+    /// e fila dele. Assim o que se mede aqui e assumir e liberar, e nao o rastro
+    /// de quem atende fora da propria fila.
+    /// </summary>
     private async Task<(HttpClient Cliente, Guid Id, List<Especialidade> Filas)> ProfissionalAsync(
         string usuario,
-        string nome)
+        string nome,
+        FuncaoProfissional funcao = FuncaoProfissional.Enfermeiro)
     {
-        var client = _fixture.CreateClient();
-        const string senha = "plantao-2026";
+        var (client, eu) = await _fixture.ClienteEPerfilDeAsync(
+            usuario, nome, funcao, usuario.GetHashCode().ToString("X"));
 
-        var registro = await client.PostAsJsonAsync("/api/auth/registrar", new
-        {
-            usuario,
-            nome,
-            funcao = "Medico",
-            registro = usuario.GetHashCode().ToString("X"),
-            senha,
-            confirmacaoSenha = senha,
-            idioma = "Pt"
-        }, Json);
-
-        if (registro.IsSuccessStatusCode)
-        {
-            var criado = await registro.Content.ReadFromJsonAsync<ProfissionalDto>(Json);
-            var admin = await AdministradorAsync();
-            (await admin.PostAsJsonAsync($"/api/profissionais/{criado!.Id}/aprovar", new { }, Json))
-                .EnsureSuccessStatusCode();
-        }
-
-        var entrada = await client.PostAsJsonAsync("/api/auth/login",
-            new { usuario, senha, idioma = "Pt" }, Json);
-        entrada.EnsureSuccessStatusCode();
-
-        var sessao = await entrada.Content.ReadFromJsonAsync<LoginResponse>(Json);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", sessao!.Token);
-
-        return (client, sessao.Profissional.Id, sessao.Profissional.Filas);
+        return (client, eu.Id, eu.Filas);
     }
 
     private static async Task<ProntuarioDto> AbrirAsync(HttpClient client, string nome)
@@ -143,15 +167,16 @@ public class AssumirEtapaTests
     }
 
     [SkippableFact]
-    public async Task O_login_diz_em_que_filas_a_funcao_trabalha()
+    public async Task O_login_diz_em_que_fila_a_profissao_trabalha()
     {
         Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
 
         // As filas vem no login, que e o que a sessao guarda. Sem isso a tela
         // nao tem como abrir na fila certa.
-        var (_, _, filas) = await ProfissionalAsync("fila.medico", "Fila Medico");
+        var (_, _, filas) = await ProfissionalAsync(
+            "fila.pediatra", "Fila Pediatra", FuncaoProfissional.Pediatra);
 
-        Assert.Equal(Especialidade.ClinicaGeral, filas[0]);
+        Assert.Equal([Especialidade.Pediatria], filas);
     }
 
     [SkippableFact]
@@ -297,6 +322,73 @@ public class AssumirEtapaTests
 
         (await admin.PostAsJsonAsync($"/api/atendimentos/{atendimento.Id}/etapas/Triagem/liberar",
             new { }, Json)).EnsureSuccessStatusCode();
+    }
+
+    [SkippableFact]
+    public async Task Atender_fora_da_propria_fila_continua_permitido()
+    {
+        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
+
+        // Em campo a equipe e curta e as funcoes se cobrem. Trancar pararia o
+        // plantao sem proteger nada: quem entrou ja foi cadastrado pela
+        // coordenacao.
+        var (dentista, _, _) = await ProfissionalAsync(
+            "cobre.dentista", "Cobre Dentista", FuncaoProfissional.Dentista);
+
+        var atendimento = await AbrirAsync(dentista, "Paciente Da Triagem Cheia");
+
+        (await dentista.PostAsJsonAsync(
+            $"/api/atendimentos/{atendimento.Id}/etapas/Triagem/assumir", new { }, Json))
+            .EnsureSuccessStatusCode();
+    }
+
+    [SkippableFact]
+    public async Task Atender_fora_da_propria_fila_fica_no_historico()
+    {
+        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
+
+        var (dentista, _, _) = await ProfissionalAsync(
+            "rastro.dentista", "Rastro Dentista", FuncaoProfissional.Dentista);
+
+        var atendimento = await AbrirAsync(dentista, "Paciente Fora Da Fila");
+
+        (await dentista.PostAsJsonAsync(
+            $"/api/atendimentos/{atendimento.Id}/etapas/Triagem/assumir", new { }, Json))
+            .EnsureSuccessStatusCode();
+
+        var prontuario = await dentista.GetFromJsonAsync<ProntuarioDto>(
+            $"/api/atendimentos/{atendimento.Id}", Json);
+
+        // Uma excecao sem rastro nao e excecao: viraria rotina silenciosa, que
+        // e exatamente o que a fila por profissao veio evitar.
+        Assert.Contains(
+            prontuario!.Historico,
+            a => a.Acao == AcaoAuditoria.AssumiuForaDaSuaFila &&
+                 a.Especialidade == Especialidade.Triagem);
+    }
+
+    [SkippableFact]
+    public async Task Atender_na_propria_fila_nao_vira_excecao_no_historico()
+    {
+        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
+
+        // O enfermeiro comeca o plantao na triagem. Marcar isso como fora da
+        // fila encheria o historico de excecoes e esconderia as de verdade.
+        var (enfermeiro, _, _) = await ProfissionalAsync(
+            "rastro.enfermeiro", "Rastro Enfermeiro", FuncaoProfissional.Enfermeiro);
+
+        var atendimento = await AbrirAsync(enfermeiro, "Paciente Da Propria Fila");
+
+        (await enfermeiro.PostAsJsonAsync(
+            $"/api/atendimentos/{atendimento.Id}/etapas/Triagem/assumir", new { }, Json))
+            .EnsureSuccessStatusCode();
+
+        var prontuario = await enfermeiro.GetFromJsonAsync<ProntuarioDto>(
+            $"/api/atendimentos/{atendimento.Id}", Json);
+
+        Assert.Contains(prontuario!.Historico, a => a.Acao == AcaoAuditoria.AssumiuEtapa);
+        Assert.DoesNotContain(
+            prontuario.Historico, a => a.Acao == AcaoAuditoria.AssumiuForaDaSuaFila);
     }
 
     [SkippableFact]

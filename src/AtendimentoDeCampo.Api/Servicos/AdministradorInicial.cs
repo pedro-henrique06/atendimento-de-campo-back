@@ -8,8 +8,13 @@ namespace AtendimentoDeCampo.Api.Servicos;
 /// <summary>
 /// Cria o primeiro administrador a partir da configuracao.
 ///
-/// Sem isso o sistema nasce travado: toda conta nova fica pendente e nao ha
-/// ninguem para aprovar — nem a primeira.
+/// Sem isso o sistema nasce travado: como nao existe auto-registro, so a
+/// coordenacao cadastra profissional — e sem o primeiro administrador nao ha
+/// coordenacao nenhuma para cadastrar ninguem.
+///
+/// A senha vem da configuracao, escolhida por quem opera o deploy, e por isso
+/// esta conta nao nasce com <see cref="Profissional.PrecisaTrocarSenha"/>: nao
+/// ha um terceiro que a conheca.
 ///
 /// Deliberadamente NAO existe um administrador padrao embutido. Um usuario
 /// "admin" com senha conhecida num sistema publico e uma porta aberta, e seria
@@ -34,7 +39,7 @@ public static class AdministradorInicial
             {
                 logger.LogWarning(
                     "Nenhum administrador cadastrado e Admin:Usuario/Admin:Senha nao configurados. " +
-                    "Contas novas ficarao pendentes sem ninguem para aprovar.");
+                    "Sem administrador nao ha como cadastrar profissional nenhum.");
             }
 
             return;

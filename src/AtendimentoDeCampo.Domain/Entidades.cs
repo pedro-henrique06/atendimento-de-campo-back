@@ -45,6 +45,20 @@ public class Profissional
     public StatusConta Status { get; set; } = StatusConta.Pendente;
 
     /// <summary>
+    /// A senha atual foi sorteada pela coordenacao no cadastro e ainda nao foi
+    /// trocada pelo dono da conta.
+    ///
+    /// Enquanto for verdadeiro a pessoa entra, mas so pode trocar a senha: quem
+    /// criou a conta conhece essa senha, e ate a troca o ato clinico registrado
+    /// nao esta atribuido com seguranca a uma pessoa so.
+    /// </summary>
+    public bool PrecisaTrocarSenha { get; set; }
+
+    /// <summary>Quem criou a conta. Nulo nas contas anteriores ao cadastro pela coordenacao.</summary>
+    public Guid? CriadaPorId { get; set; }
+    public Profissional? CriadaPor { get; set; }
+
+    /// <summary>
     /// Pode aprovar contas. E um eixo proprio, e nao a funcao Coordenacao:
     /// coordenar a operacao em campo e administrar acessos do sistema sao
     /// responsabilidades diferentes, e nem sempre da mesma pessoa.
