@@ -259,6 +259,24 @@ public sealed record PacienteDto(
     List<Vulnerabilidade> Vulnerabilidades,
     bool ConsentimentoRegistro);
 
+/// <summary>
+/// Quem assinou o ato clinico.
+///
+/// O nome sozinho nao basta numa ficha: o registro no conselho e o que
+/// identifica a pessoa fora do sistema — e e o que a equipe, a auditoria e o
+/// servico de referencia procuram quando precisam saber quem atendeu.
+/// </summary>
+public sealed record AutorDto(string Nome, ConselhoTipo Conselho, string? Registro);
+
+/// <summary>
+/// Etapa vista de fora, para a lista e para o prontuario saberem que fila esta
+/// aberta e com quem.
+/// </summary>
+/// <remarks>
+/// <c>Profissional</c> e so o nome, de proposito: aqui ele diz quem esta com o
+/// paciente agora, e a tela compara com o nome de quem esta olhando. Assinatura
+/// e outra coisa e mora nas fichas, em <see cref="AutorDto"/>.
+/// </remarks>
 public sealed record EtapaResumoDto(
     Guid Id,
     Especialidade Especialidade,
@@ -381,7 +399,7 @@ public sealed record SugestaoStartDto(ClassificacaoRisco Sugerida, string Motivo
 
 public sealed record TriagemDto(
     Guid EtapaId,
-    string? Profissional,
+    AutorDto? Profissional,
     int? PressaoSistolica,
     int? PressaoDiastolica,
     int? FrequenciaCardiaca,
@@ -470,7 +488,7 @@ public sealed record DispensacaoDto(
 public sealed record ConsultaDto(
     Guid EtapaId,
     Especialidade Especialidade,
-    string? Profissional,
+    AutorDto? Profissional,
     string? SintomasDescricao,
     string? Cid10Codigo,
     string? Cid10Descricao,
@@ -519,7 +537,7 @@ public sealed record MarcacaoDenteDto(int Dente, EstadoDente Estado, List<FaceDe
 
 public sealed record OdontologiaDto(
     Guid EtapaId,
-    string? Profissional,
+    AutorDto? Profissional,
     string? Queixa,
     string? Cid10Codigo,
     string? Cid10Descricao,
@@ -551,7 +569,7 @@ public sealed record RegistrarEnfermagemRequest
 
 public sealed record EnfermagemDto(
     Guid EtapaId,
-    string? Profissional,
+    AutorDto? Profissional,
     List<ProcedimentoEnfermagem> Procedimentos,
     string? OutroProcedimento,
     string? Observacoes,
@@ -588,3 +606,30 @@ public sealed record FinalizarAtendimentoRequest
     [MaxLength(300)]
     public string? Justificativa { get; init; }
 }
+
+// ---------------------------------------------------------------------------
+// Relatorios
+// ---------------------------------------------------------------------------
+
+public sealed record ProducaoPorFilaDto(
+    Especialidade Especialidade,
+    int Atendimentos,
+    int MinutosTotais);
+
+/// <summary>
+/// Producao de um profissional no periodo.
+///
+/// Conta etapas concluidas, e nao pacientes: quem viu a mesma pessoa na triagem
+/// e depois na enfermagem fez dois atendimentos, porque foram dois atos.
+/// </summary>
+public sealed record ProducaoProfissionalDto(
+    Guid ProfissionalId,
+    string Nome,
+    FuncaoProfissional Funcao,
+    ConselhoTipo Conselho,
+    string? Registro,
+    int Atendimentos,
+    int MinutosTotais,
+    /// <summary>Mediana, e nao media: uma ficha esquecida aberta deformaria a media.</summary>
+    int? MinutosMedianos,
+    List<ProducaoPorFilaDto> PorFila);

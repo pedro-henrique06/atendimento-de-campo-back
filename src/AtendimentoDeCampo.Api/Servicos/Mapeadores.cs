@@ -119,13 +119,25 @@ public static class Mapeadores
                 e.ConcluidaEm)).ToList());
     }
 
+    /// <summary>
+    /// Quem assinou a ficha, com o registro do conselho.
+    ///
+    /// O registro ja estava gravado no cadastro do profissional e nunca chegava
+    /// na tela: a ficha mostrava so o nome, que e o que menos identifica alguem
+    /// fora do sistema.
+    /// </summary>
+    private static AutorDto? ParaAutor(Profissional? profissional)
+        => profissional is null
+            ? null
+            : new AutorDto(profissional.Nome, profissional.ConselhoTipo, profissional.Registro);
+
     private static TriagemDto ParaTriagemDto(Etapa etapa)
     {
         var t = etapa.Triagem!;
 
         return new TriagemDto(
             etapa.Id,
-            etapa.Profissional?.Nome,
+            ParaAutor(etapa.Profissional),
             t.PressaoSistolica,
             t.PressaoDiastolica,
             t.FrequenciaCardiaca,
@@ -161,7 +173,7 @@ public static class Mapeadores
         return new ConsultaDto(
             etapa.Id,
             etapa.Especialidade,
-            etapa.Profissional?.Nome,
+            ParaAutor(etapa.Profissional),
             c.SintomasDescricao,
             c.Cid10Codigo,
             c.Cid10?.DescricaoPt,
@@ -180,7 +192,7 @@ public static class Mapeadores
 
         return new OdontologiaDto(
             etapa.Id,
-            etapa.Profissional?.Nome,
+            ParaAutor(etapa.Profissional),
             o.Queixa,
             o.Cid10Codigo,
             o.Cid10?.DescricaoPt,
@@ -202,7 +214,7 @@ public static class Mapeadores
 
         return new EnfermagemDto(
             etapa.Id,
-            etapa.Profissional?.Nome,
+            ParaAutor(etapa.Profissional),
             e.Procedimentos,
             e.OutroProcedimento,
             e.Observacoes,
