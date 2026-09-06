@@ -172,6 +172,31 @@ public sealed record EncaminharRequest
     public string Motivo { get; init; } = string.Empty;
 }
 
+/// <summary>Devolucao para a fila que encaminhou o paciente.</summary>
+public sealed record DevolverRequest
+{
+    /// <summary>
+    /// Obrigatorio, pelo mesmo motivo do encaminhamento: quem recebe o paciente
+    /// de volta precisa saber por que ele voltou.
+    /// </summary>
+    [Required, MaxLength(300)]
+    public string Motivo { get; init; } = string.Empty;
+}
+
+/// <summary>Alta: encerra a etapa de quem atende e o atendimento junto.</summary>
+public sealed record DarAltaRequest
+{
+    /// <summary>
+    /// Confirma o cancelamento das filas que ficaram pendentes.
+    ///
+    /// Falso na primeira tentativa de proposito: a API recusa listando as filas,
+    /// e a tela pergunta antes. Tirar o paciente da fila da odontologia em
+    /// silencio e o tipo de coisa que so se descobre quando ele volta no dia
+    /// seguinte perguntando pelo dentista.
+    /// </summary>
+    public bool CancelarPendentes { get; init; }
+}
+
 // ---------------------------------------------------------------------------
 // Paciente e atendimento
 // ---------------------------------------------------------------------------
@@ -310,7 +335,16 @@ public sealed record EtapaResumoDto(
     StatusEtapa Status,
     string? Profissional,
     DateTime? IniciadaEm,
-    DateTime? ConcluidaEm);
+    DateTime? ConcluidaEm,
+    /// <summary>
+    /// Quando o profissional assumiu esta passagem. E daqui que o cronometro da
+    /// tela conta — nao da entrada na fila, que incluiria a espera.
+    /// </summary>
+    DateTime? AssumidaEm = null,
+    /// <summary>Quem encaminhou o paciente para esta fila, se veio de outra.</summary>
+    string? EncaminhadaPor = null,
+    /// <summary>De qual fila veio: o destino do botao de devolver.</summary>
+    Especialidade? EncaminhadaDe = null);
 
 public sealed record AtendimentoResumoDto(
     Guid Id,

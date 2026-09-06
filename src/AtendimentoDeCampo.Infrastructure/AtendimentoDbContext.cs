@@ -369,8 +369,23 @@ public class AtendimentoDbContext : DbContext
                 .HasForeignKey(x => x.AtendimentoId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Restrict, e nao Cascade: apagar um profissional nao pode levar
+            // junto a producao dele nem a passagem do paciente pela fila.
+            e.HasOne(x => x.Profissional)
+                .WithMany()
+                .HasForeignKey(x => x.ProfissionalId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            e.HasOne(x => x.EncaminhadaPor)
+                .WithMany()
+                .HasForeignKey(x => x.EncaminhadaPorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             e.HasIndex(x => x.AtendimentoId);
             e.HasIndex(x => new { x.Especialidade, x.EntrouEm });
+
+            // O relatorio de producao le por profissional e por periodo.
+            e.HasIndex(x => new { x.ProfissionalId, x.ConcluidaEm });
         });
 
         b.Entity<Auditoria>(e =>

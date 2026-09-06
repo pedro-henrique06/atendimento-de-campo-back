@@ -69,7 +69,36 @@ public class AtendimentosController : ControllerBase
         Especialidade especialidade,
         [FromBody] EncaminharRequest req,
         CancellationToken ct)
-        => Ok(await _servico.EncaminharAsync(id, especialidade, req.Destino, req.Motivo, ProfissionalId, ct));
+        => Ok(await _servico.EncaminharAsync(
+            id, especialidade, req.Destino, req.Motivo, ProfissionalId, ct: ct));
+
+    /// <summary>
+    /// Devolve o paciente para a fila que o encaminhou.
+    ///
+    /// O destino vem da passagem, e nao do corpo do pedido: quem devolve nao
+    /// precisa lembrar de onde o paciente veio, e nao tem como errar a fila.
+    /// </summary>
+    [HttpPost("{id:guid}/etapas/{especialidade}/devolver")]
+    public async Task<ActionResult<ProntuarioDto>> Devolver(
+        Guid id,
+        Especialidade especialidade,
+        [FromBody] DevolverRequest req,
+        CancellationToken ct)
+        => Ok(await _servico.DevolverAsync(id, especialidade, req.Motivo, ProfissionalId, ct));
+
+    /// <summary>
+    /// Da alta: encerra esta etapa e o atendimento junto.
+    ///
+    /// Recusa com a lista das filas pendentes quando ha alguma e o pedido nao
+    /// confirma o cancelamento — a tela pergunta antes.
+    /// </summary>
+    [HttpPost("{id:guid}/etapas/{especialidade}/alta")]
+    public async Task<ActionResult<ProntuarioDto>> DarAlta(
+        Guid id,
+        Especialidade especialidade,
+        [FromBody] DarAltaRequest req,
+        CancellationToken ct)
+        => Ok(await _servico.DarAltaAsync(id, especialidade, req.CancelarPendentes, ProfissionalId, ct));
 
     /// <summary>Devolve a etapa para a fila.</summary>
     [HttpPost("{id:guid}/etapas/{especialidade}/liberar")]

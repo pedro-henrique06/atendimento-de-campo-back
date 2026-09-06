@@ -35,17 +35,38 @@ public static class Mapeadores
             p.ConsentimentoRegistro);
     }
 
+    /// <summary>
+    /// A etapa mais o que vem da passagem em aberto pela fila: desde quando esta
+    /// com o profissional e quem a encaminhou.
+    ///
+    /// Os dois moram na passagem, e nao na etapa, porque o paciente pode passar
+    /// duas vezes pela mesma fila — a etapa e uma so, e a segunda passagem
+    /// sobrescreveria a primeira.
+    /// </summary>
+    public static EtapaResumoDto ParaEtapaResumo(Etapa e, Atendimento a)
+    {
+        var passagem = a.PassagensFila
+            .Where(p => p.Especialidade == e.Especialidade && p.SaiuEm is null)
+            .OrderByDescending(p => p.EntrouEm)
+            .FirstOrDefault();
+
+        return new EtapaResumoDto(
+            e.Id,
+            e.Especialidade,
+            e.Status,
+            e.Profissional?.Nome,
+            e.IniciadaEm,
+            e.ConcluidaEm,
+            passagem?.AssumidaEm,
+            passagem?.EncaminhadaPor?.Nome,
+            passagem?.EncaminhadaDe);
+    }
+
     public static AtendimentoResumoDto ParaResumo(Atendimento a)
     {
         var etapas = a.Etapas
             .OrderBy(e => e.CriadaEm)
-            .Select(e => new EtapaResumoDto(
-                e.Id,
-                e.Especialidade,
-                e.Status,
-                e.Profissional?.Nome,
-                e.IniciadaEm,
-                e.ConcluidaEm))
+            .Select(e => ParaEtapaResumo(e, a))
             .ToList();
 
         return new AtendimentoResumoDto(
@@ -119,13 +140,7 @@ public static class Mapeadores
             enfEtapa?.Enfermagem is null ? null : ParaEnfermagemDto(enfEtapa),
             tempos,
             historico,
-            etapas.Select(e => new EtapaResumoDto(
-                e.Id,
-                e.Especialidade,
-                e.Status,
-                e.Profissional?.Nome,
-                e.IniciadaEm,
-                e.ConcluidaEm)).ToList());
+            etapas.Select(e => ParaEtapaResumo(e, a)).ToList());
     }
 
     /// <summary>
