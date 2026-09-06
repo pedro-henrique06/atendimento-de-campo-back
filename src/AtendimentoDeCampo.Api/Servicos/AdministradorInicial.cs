@@ -31,7 +31,17 @@ public static class AdministradorInicial
     {
         var usuario = NomeDeUsuario.Normalizar(config["Admin:Usuario"]);
         var senha = config["Admin:Senha"];
-        var nome = config["Admin:Nome"] ?? "Administrador";
+        /*
+            Vazio conta como ausente, e nao como nome.
+
+            O appsettings.json traz "Admin:Nome" como "" para documentar a
+            chave, e com `??` a string vazia passa direto: a conta nascia sem
+            nome nenhum, e "" e o que aparecia na assinatura da ficha, no
+            historico do atendimento e na tabela de producao — exatamente onde a
+            pergunta e quem atendeu.
+        */
+        var configurado = config["Admin:Nome"];
+        var nome = string.IsNullOrWhiteSpace(configurado) ? "Administrador" : configurado.Trim();
 
         if (string.IsNullOrWhiteSpace(usuario) || string.IsNullOrWhiteSpace(senha))
         {
