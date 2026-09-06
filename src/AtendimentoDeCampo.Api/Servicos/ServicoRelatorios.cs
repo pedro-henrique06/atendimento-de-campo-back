@@ -8,10 +8,11 @@ namespace AtendimentoDeCampo.Api.Servicos;
 /// <summary>
 /// Producao por profissional.
 ///
-/// Nao acrescenta dado nenhum ao banco: cada etapa ja gravava quem atendeu,
-/// quando comecou e quando terminou. O que faltava era a leitura — e sem ela a
-/// coordenacao nao tinha como responder quantos pacientes cada pessoa atendeu
-/// nem quanto tempo cada fila consome, que e o que decide escala de plantao.
+/// Le a passagem do paciente pela fila — quem atendeu, quando assumiu e quando
+/// terminou —, que e o registro que sobrevive ao paciente voltar para uma fila
+/// pela qual ja passou. Sem ela a coordenacao nao tem como responder quantos
+/// pacientes cada pessoa atendeu nem quanto tempo cada fila consome, que e o que
+/// decide escala de plantao.
 /// </summary>
 public sealed class ServicoRelatorios
 {
@@ -38,40 +39,45 @@ public sealed class ServicoRelatorios
         }
 
         /*
-            So etapas concluidas entram. Uma etapa aberta nao tem duracao — teria
-            a duracao do plantao inteiro de quem esqueceu de fechar, e um unico
-            esquecimento assim deformaria a media de todo mundo.
+            A conta e por passagem pela fila, e nao por etapa.
 
-            Etapas canceladas tambem ficam de fora: elas sao o caso de quem
-            recebeu o paciente e encaminhou sem atender, e contar isso como
-            producao infla a especialidade com atendimento que nao aconteceu.
+            A diferenca aparece quando o paciente volta: o clinico encaminha para
+            a pediatria, a pediatria devolve, e a etapa da clinica geral — que e
+            uma so, por indice unico — e reaberta e concluida de novo. Lida pela
+            etapa, a segunda consulta apagaria a primeira, e o trabalho do
+            primeiro medico sumiria da tabela.
+
+            So passagem atendida e encerrada entra. Passagem aberta nao tem
+            duracao: teria a duracao do plantao de quem esqueceu de fechar, e um
+            esquecimento so deformaria a mediana de todo mundo. Passagem sem
+            profissional e o caso de quem recebeu o paciente na fila errada e
+            reencaminhou sem atender — nao e producao de ninguem.
         */
-        var query = _db.Etapas
+        var query = _db.PassagensFila
             .AsNoTracking()
-            .Where(e =>
-                e.Atendimento!.BaseId == baseId &&
-                e.Status == StatusEtapa.Concluida &&
-                e.ProfissionalId != null &&
-                e.IniciadaEm != null &&
-                e.ConcluidaEm != null &&
-                e.ConcluidaEm >= inicio &&
-                e.ConcluidaEm <= fim);
+            .Where(p =>
+                p.Atendimento!.BaseId == baseId &&
+                p.ProfissionalId != null &&
+                p.AssumidaEm != null &&
+                p.ConcluidaEm != null &&
+                p.ConcluidaEm >= inicio &&
+                p.ConcluidaEm <= fim);
 
         if (somenteEste is not null)
         {
-            query = query.Where(e => e.ProfissionalId == somenteEste);
+            query = query.Where(p => p.ProfissionalId == somenteEste);
         }
 
         var etapas = await query
-            .Select(e => new EtapaMedida(
-                e.ProfissionalId!.Value,
-                e.Profissional!.Nome,
-                e.Profissional.Funcao,
-                e.Profissional.ConselhoTipo,
-                e.Profissional.Registro,
-                e.Especialidade,
-                e.IniciadaEm!.Value,
-                e.ConcluidaEm!.Value))
+            .Select(p => new EtapaMedida(
+                p.ProfissionalId!.Value,
+                p.Profissional!.Nome,
+                p.Profissional.Funcao,
+                p.Profissional.ConselhoTipo,
+                p.Profissional.Registro,
+                p.Especialidade,
+                p.AssumidaEm!.Value,
+                p.ConcluidaEm!.Value))
             .ToListAsync(ct);
 
         return etapas

@@ -340,7 +340,7 @@ public sealed class ServicoAtendimento
             aposFinalizacao: atendimento.FinalizadoEm is not null);
 
         ConcluirEtapa(etapa, profissionalId);
-        FecharPassagem(atendimento, Especialidade.Triagem);
+        FecharPassagem(atendimento, Especialidade.Triagem, profissionalId);
 
         await _auditoria.RegistrarAsync(
             atendimentoId, profissionalId, AcaoAuditoria.ConcluiuEtapa, Especialidade.Triagem, ct);
@@ -348,7 +348,8 @@ public sealed class ServicoAtendimento
         // O encaminhamento abre a proxima fila.
         if (req.Encaminhamento is Especialidade destino && destino != Especialidade.Triagem)
         {
-            await AbrirFilaAsync(atendimento, destino, ct);
+            await AbrirFilaAsync(
+                atendimento, destino, ct, profissionalId, Especialidade.Triagem);
         }
 
         await _db.SaveChangesAsync(ct);
@@ -463,14 +464,15 @@ public sealed class ServicoAtendimento
             aposFinalizacao: atendimento.FinalizadoEm is not null);
 
         ConcluirEtapa(etapa, profissionalId);
-        FecharPassagem(atendimento, req.Especialidade);
+        FecharPassagem(atendimento, req.Especialidade, profissionalId);
 
         await _auditoria.RegistrarAsync(
             atendimentoId, profissionalId, AcaoAuditoria.ConcluiuEtapa, req.Especialidade, ct);
 
         if (req.Desfecho == DesfechoConsulta.Encaminhado && req.EncaminhadoPara is Especialidade destino)
         {
-            await AbrirFilaAsync(atendimento, destino, ct);
+            await AbrirFilaAsync(
+                atendimento, destino, ct, profissionalId, req.Especialidade);
         }
 
         atendimento.AtualizadoEm = DateTime.UtcNow;
@@ -535,7 +537,7 @@ public sealed class ServicoAtendimento
             aposFinalizacao: atendimento.FinalizadoEm is not null);
 
         ConcluirEtapa(etapa, profissionalId);
-        FecharPassagem(atendimento, Especialidade.Odontologia);
+        FecharPassagem(atendimento, Especialidade.Odontologia, profissionalId);
 
         await _auditoria.RegistrarAsync(
             atendimentoId, profissionalId, AcaoAuditoria.ConcluiuEtapa, Especialidade.Odontologia, ct);
@@ -612,7 +614,7 @@ public sealed class ServicoAtendimento
             aposFinalizacao: atendimento.FinalizadoEm is not null);
 
         ConcluirEtapa(etapa, profissionalId);
-        FecharPassagem(atendimento, Especialidade.Enfermagem);
+        FecharPassagem(atendimento, Especialidade.Enfermagem, profissionalId);
 
         await _auditoria.RegistrarAsync(
             atendimentoId, profissionalId, AcaoAuditoria.ConcluiuEtapa, Especialidade.Enfermagem, ct);
@@ -726,6 +728,10 @@ public sealed class ServicoAtendimento
             .AsNoTracking()
             .Include(a => a.Paciente)
             .Include(a => a.Etapas).ThenInclude(e => e.Profissional)
+            // A passagem aberta e o que a lista precisa para o cronometro e para
+            // dizer quem encaminhou. Sem este Include ela viria vazia sob
+            // AsNoTracking, e o cartao perderia os dois em silencio.
+            .Include(a => a.PassagensFila).ThenInclude(p => p.EncaminhadaPor)
             .Where(a => a.BaseId == baseId && a.Status != StatusAtendimento.Cancelado);
 
         if (risco is not null)
@@ -825,6 +831,17 @@ public sealed class ServicoAtendimento
         etapa.IniciadaEm ??= DateTime.UtcNow;
 
         /*
+            O cronometro da tela conta a partir daqui, e nao da entrada na fila:
+            entre uma coisa e outra esta a espera, e somar as duas faria todo
+            atendimento parecer durar o plantao inteiro.
+        */
+        if (PassagemAberta(atendimento, especialidade) is PassagemFila passagem)
+        {
+            passagem.ProfissionalId = profissionalId;
+            passagem.AssumidaEm ??= DateTime.UtcNow;
+        }
+
+        /*
             Atender fora da propria fila e permitido: em campo a equipe e curta e
             as funcoes se cobrem — o medico tria quando a fila estoura. Mas fica
             marcado, porque uma excecao sem rastro nao e excecao, e virar rotina
@@ -882,6 +899,15 @@ public sealed class ServicoAtendimento
         etapa.ProfissionalId = null;
         etapa.Status = StatusEtapa.Aguardando;
 
+        // O cronometro para e a passagem volta a nao ter dono: quem devolveu
+        // para a fila nao atendeu, e contar isso como producao dele seria contar
+        // um atendimento que nao houve.
+        if (PassagemAberta(atendimento, especialidade) is PassagemFila passagem)
+        {
+            passagem.ProfissionalId = null;
+            passagem.AssumidaEm = null;
+        }
+
         await _auditoria.RegistrarAsync(
             atendimentoId, profissionalId, AcaoAuditoria.LiberouEtapa, especialidade, ct);
 
@@ -910,6 +936,7 @@ public sealed class ServicoAtendimento
         Especialidade destino,
         string? motivo,
         Guid profissionalId,
+        AcaoAuditoria acao = AcaoAuditoria.EncaminhouParaOutraFila,
         CancellationToken ct = default)
     {
         if (origem == destino)
@@ -954,11 +981,10 @@ public sealed class ServicoAtendimento
         etapa.ConcluidaEm = DateTime.UtcNow;
         etapa.ProfissionalId = profissionalId;
 
-        FecharPassagem(atendimento, origem);
-        await AbrirFilaAsync(atendimento, destino, ct);
+        FecharPassagem(atendimento, origem, houveAtendimento ? profissionalId : null);
+        await AbrirFilaAsync(atendimento, destino, ct, profissionalId, origem);
 
-        await _auditoria.RegistrarAsync(
-            atendimentoId, profissionalId, AcaoAuditoria.EncaminhouParaOutraFila, origem, ct);
+        await _auditoria.RegistrarAsync(atendimentoId, profissionalId, acao, origem, ct);
 
         // Chave e valores canonicos: a traducao acontece na hora de exibir, para
         // o historico nao congelar no idioma de quem encaminhou.
@@ -979,10 +1005,136 @@ public sealed class ServicoAtendimento
         return await ObterProntuarioAsync(atendimentoId, ct);
     }
 
+    /// <summary>
+    /// Devolve o paciente para a fila que o encaminhou.
+    ///
+    /// E o caminho de volta do encaminhamento: o clinico manda para a pediatria,
+    /// a pediatria vê que nao e caso dela e devolve. Sem isto a pediatra teria de
+    /// lembrar de onde o paciente veio e escolher a fila na mao — e escolheria
+    /// errado nas vezes em que o paciente ja passou por tres.
+    ///
+    /// A etapa de destino ja existe e ja esta concluida; <see cref="AbrirFilaAsync"/>
+    /// a reabre com a ficha que ela ja tinha, e nao como consulta nova.
+    /// </summary>
+    public async Task<ProntuarioDto> DevolverAsync(
+        Guid atendimentoId,
+        Especialidade origem,
+        string? motivo,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(motivo))
+        {
+            throw new RegraDeNegocioException("Informe o motivo da devolucao.");
+        }
+
+        var atendimento = await CarregarAsync(atendimentoId, ct);
+
+        if (atendimento.FinalizadoEm is not null)
+        {
+            throw new RegraDeNegocioException(
+                "Este atendimento ja foi finalizado. Reabra antes de devolver.");
+        }
+
+        var passagem = PassagemAberta(atendimento, origem)
+            ?? throw new RegraDeNegocioException("Este atendimento nao esta nesta fila.");
+
+        var destino = passagem.EncaminhadaDe
+            ?? throw new RegraDeNegocioException(
+                "Este atendimento nao veio de outra fila: nao ha para onde devolver.");
+
+        return await EncaminharAsync(atendimentoId, origem, destino, motivo, profissionalId,
+            AcaoAuditoria.DevolveuParaOrigem, ct);
+    }
+
+    /// <summary>
+    /// Da alta: encerra a etapa de quem esta atendendo e o atendimento junto.
+    ///
+    /// Ate agora a alta so fechava a etapa, e o atendimento ficava aberto ate
+    /// alguem lembrar de finalizar no prontuario. Na pratica ninguem lembrava, e
+    /// o paciente aparecia em aberto no dia seguinte — o que estraga tanto a fila
+    /// quanto o tempo medido.
+    ///
+    /// Filas pendentes de outras especialidades nao impedem a alta, mas nao somem
+    /// caladas: sem <paramref name="cancelarPendentes"/> a chamada e recusada com
+    /// a lista, para a tela perguntar antes. Elas sao canceladas, e nao
+    /// concluidas: ninguem atendeu, e concluir inflaria a producao da
+    /// especialidade com atendimento que nao aconteceu.
+    /// </summary>
+    public async Task<ProntuarioDto> DarAltaAsync(
+        Guid atendimentoId,
+        Especialidade especialidade,
+        bool cancelarPendentes,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarAsync(atendimentoId, ct);
+
+        if (atendimento.FinalizadoEm is not null)
+        {
+            throw new RegraDeNegocioException("Atendimento ja esta finalizado.");
+        }
+
+        var minha = atendimento.Etapas.FirstOrDefault(e => e.Especialidade == especialidade)
+            ?? throw new RegraDeNegocioException("Este atendimento nao passou por esta fila.");
+
+        var pendentes = atendimento.Etapas
+            .Where(e => e.Id != minha.Id)
+            .Where(e => e.Status is StatusEtapa.Aguardando or StatusEtapa.EmAndamento)
+            .ToList();
+
+        if (pendentes.Count > 0 && !cancelarPendentes)
+        {
+            throw new RegraDeNegocioException(
+                "Ha filas pendentes: " +
+                string.Join(", ", pendentes.Select(e => e.Especialidade.ToString())) +
+                ". Confirme para dar alta cancelando estas filas.");
+        }
+
+        if (minha.Status is StatusEtapa.Aguardando or StatusEtapa.EmAndamento)
+        {
+            ConcluirEtapa(minha, profissionalId);
+            FecharPassagem(atendimento, especialidade, profissionalId);
+        }
+
+        foreach (var pendente in pendentes)
+        {
+            pendente.Status = StatusEtapa.Cancelada;
+            pendente.ConcluidaEm = DateTime.UtcNow;
+
+            // Sem profissional: a fila foi cancelada, nao atendida.
+            FecharPassagem(atendimento, pendente.Especialidade);
+
+            await _auditoria.RegistrarAsync(
+                atendimentoId, profissionalId, AcaoAuditoria.CancelouFilaPendente,
+                pendente.Especialidade, ct);
+        }
+
+        atendimento.Status = StatusAtendimento.Finalizado;
+        atendimento.FinalizadoPorId = profissionalId;
+        atendimento.FinalizadoEm = DateTime.UtcNow;
+        atendimento.AtualizadoEm = DateTime.UtcNow;
+
+        foreach (var aberta in atendimento.PassagensFila.Where(p => p.SaiuEm is null))
+        {
+            aberta.SaiuEm = DateTime.UtcNow;
+        }
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.DeuAlta, especialidade, ct);
+
+        await _db.SaveChangesAsync(ct);
+
+        return await ObterProntuarioAsync(atendimentoId, ct);
+    }
+
     private async Task<Atendimento> CarregarComEtapasAsync(Guid id, CancellationToken ct)
         => await _db.Atendimentos
             .Include(a => a.Paciente)
             .Include(a => a.Etapas).ThenInclude(e => e.Profissional)
+            // Assumir e liberar mexem na passagem: sem este Include a colecao
+            // vem vazia e o cronometro nunca comeca a contar, calado.
+            .Include(a => a.PassagensFila).ThenInclude(p => p.EncaminhadaPor)
             .FirstOrDefaultAsync(a => a.Id == id, ct)
             ?? throw new RegraDeNegocioException("Atendimento nao encontrado.");
 
@@ -1007,7 +1159,7 @@ public sealed class ServicoAtendimento
             .Include(a => a.Paciente).ThenInclude(p => p!.Comunidade)
             .Include(a => a.CriadoPor)
             .Include(a => a.FinalizadoPor)
-            .Include(a => a.PassagensFila)
+            .Include(a => a.PassagensFila).ThenInclude(p => p.EncaminhadaPor)
             .Include(a => a.Auditorias).ThenInclude(x => x.Profissional)
             .Include(a => a.Etapas).ThenInclude(e => e.Profissional)
             .Include(a => a.Etapas).ThenInclude(e => e.Triagem)
@@ -1102,24 +1254,69 @@ public sealed class ServicoAtendimento
         etapa.ProfissionalId = profissionalId;
     }
 
-    private static void FecharPassagem(Atendimento atendimento, Especialidade especialidade)
-    {
-        var passagem = atendimento.PassagensFila
+    /// <summary>A passagem em aberto pela fila, se houver.</summary>
+    private static PassagemFila? PassagemAberta(Atendimento atendimento, Especialidade especialidade)
+        => atendimento.PassagensFila
             .Where(p => p.Especialidade == especialidade && p.SaiuEm is null)
             .OrderByDescending(p => p.EntrouEm)
             .FirstOrDefault();
 
-        if (passagem is not null)
+    /// <param name="atendidoPor">
+    /// Quem atendeu, ou nulo quando o paciente saiu da fila sem ter sido
+    /// atendido. Distinguir importa: passagem sem profissional nao entra na
+    /// producao de ninguem, e e exatamente o caso de quem recebe o paciente na
+    /// fila errada e reencaminha sem abrir a ficha.
+    /// </param>
+    private static void FecharPassagem(
+        Atendimento atendimento,
+        Especialidade especialidade,
+        Guid? atendidoPor = null)
+    {
+        var passagem = PassagemAberta(atendimento, especialidade);
+
+        if (passagem is null)
         {
-            passagem.SaiuEm = DateTime.UtcNow;
+            return;
         }
+
+        passagem.SaiuEm = DateTime.UtcNow;
+
+        if (atendidoPor is null)
+        {
+            return;
+        }
+
+        passagem.ProfissionalId = atendidoPor;
+        passagem.AssumidaEm ??= passagem.EntrouEm;
+        passagem.ConcluidaEm = passagem.SaiuEm;
     }
 
-    private async Task AbrirFilaAsync(Atendimento atendimento, Especialidade destino, CancellationToken ct)
+    /// <summary>
+    /// Abre a fila de destino, ou reabre a que ja foi concluida.
+    ///
+    /// Reabrir e o caso da devolucao: a pediatria devolve ao clinico que
+    /// encaminhou, e a etapa da clinica geral ja existe e ja esta concluida.
+    /// Como o indice e unico por (atendimento, especialidade), nao ha uma
+    /// segunda etapa a criar — a mesma volta para "aguardando", com a ficha
+    /// clinica que ja tinha.
+    ///
+    /// Os horarios da etapa sao zerados junto. Se ficassem, a etapa mediria do
+    /// primeiro atendimento ate o fim do segundo, engolindo o desvio pela outra
+    /// fila. Cada passagem, com o seu profissional e o seu tempo, esta guardada
+    /// em <see cref="PassagemFila"/>, que e de onde a producao e lida.
+    /// </summary>
+    private async Task AbrirFilaAsync(
+        Atendimento atendimento,
+        Especialidade destino,
+        CancellationToken ct,
+        Guid? encaminhadaPorId = null,
+        Especialidade? encaminhadaDe = null)
     {
-        if (!atendimento.Etapas.Any(e => e.Especialidade == destino))
+        var etapa = atendimento.Etapas.FirstOrDefault(e => e.Especialidade == destino);
+
+        if (etapa is null)
         {
-            var etapa = new Etapa
+            etapa = new Etapa
             {
                 AtendimentoId = atendimento.Id,
                 Especialidade = destino,
@@ -1129,13 +1326,22 @@ public sealed class ServicoAtendimento
             _db.Etapas.Add(etapa);
             atendimento.Etapas.Add(etapa);
         }
+        else if (etapa.Status is StatusEtapa.Concluida or StatusEtapa.Cancelada)
+        {
+            etapa.Status = StatusEtapa.Aguardando;
+            etapa.ProfissionalId = null;
+            etapa.IniciadaEm = null;
+            etapa.ConcluidaEm = null;
+        }
 
-        if (!atendimento.PassagensFila.Any(p => p.Especialidade == destino && p.SaiuEm is null))
+        if (PassagemAberta(atendimento, destino) is null)
         {
             var passagem = new PassagemFila
             {
                 AtendimentoId = atendimento.Id,
-                Especialidade = destino
+                Especialidade = destino,
+                EncaminhadaPorId = encaminhadaPorId,
+                EncaminhadaDe = encaminhadaDe
             };
 
             _db.PassagensFila.Add(passagem);

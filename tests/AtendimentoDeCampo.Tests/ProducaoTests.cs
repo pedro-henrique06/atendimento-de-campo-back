@@ -63,19 +63,35 @@ public class ProducaoTests
     ///
     /// Os instantes sao ajustados direto no banco: pelo HTTP a etapa duraria os
     /// milissegundos da chamada, e ai nao daria para testar nada sobre tempo.
+    ///
+    /// Etapa e passagem sao fechadas juntas, como o servico faz. A conta da
+    /// producao sai da passagem — e ela que sobrevive ao paciente voltar para
+    /// uma fila pela qual ja passou —, mas deixar a etapa aberta aqui
+    /// produziria um estado que o sistema nunca gera.
     /// </summary>
     private async Task ConcluirTriagemAsync(Guid atendimentoId, Guid profissionalId, int minutos)
     {
         using var escopo = _fixture.Services.CreateScope();
         var db = escopo.ServiceProvider.GetRequiredService<AtendimentoDbContext>();
 
+        var fim = DateTime.UtcNow;
+        var inicio = fim.AddMinutes(-minutos);
+
         var etapa = await db.Etapas.FirstAsync(e =>
             e.AtendimentoId == atendimentoId && e.Especialidade == Especialidade.Triagem);
 
         etapa.ProfissionalId = profissionalId;
         etapa.Status = StatusEtapa.Concluida;
-        etapa.ConcluidaEm = DateTime.UtcNow;
-        etapa.IniciadaEm = etapa.ConcluidaEm.Value.AddMinutes(-minutos);
+        etapa.ConcluidaEm = fim;
+        etapa.IniciadaEm = inicio;
+
+        var passagem = await db.PassagensFila.FirstAsync(p =>
+            p.AtendimentoId == atendimentoId && p.Especialidade == Especialidade.Triagem);
+
+        passagem.ProfissionalId = profissionalId;
+        passagem.AssumidaEm = inicio;
+        passagem.ConcluidaEm = fim;
+        passagem.SaiuEm = fim;
 
         await db.SaveChangesAsync();
     }

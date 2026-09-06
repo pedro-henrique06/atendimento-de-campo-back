@@ -450,7 +450,14 @@ public class Cid10
 }
 
 /// <summary>
-/// Entrada e saida do paciente em cada fila, base do relatorio de tempo de espera.
+/// Uma passagem do paciente por uma fila, do momento em que entrou ate sair.
+///
+/// O paciente pode passar duas vezes pela mesma fila — e justamente o que
+/// acontece quando a pediatria devolve o caso ao clinico que encaminhou. A
+/// <see cref="Etapa"/> nao consegue guardar isso: e uma por especialidade, por
+/// indice unico, e carrega a ficha clinica, que continua sendo uma so. Entao a
+/// contagem de quem atendeu, quando assumiu e quanto durou vive aqui, uma linha
+/// por passagem.
 /// </summary>
 public class PassagemFila
 {
@@ -460,6 +467,40 @@ public class PassagemFila
     public Especialidade Especialidade { get; set; }
     public DateTime EntrouEm { get; set; } = DateTime.UtcNow;
     public DateTime? SaiuEm { get; set; }
+
+    /// <summary>Quem atendeu nesta passagem. Nulo enquanto ninguem assumiu.</summary>
+    public Guid? ProfissionalId { get; set; }
+    public Profissional? Profissional { get; set; }
+
+    /// <summary>
+    /// Quando o profissional assumiu — o inicio do cronometro que a tela mostra.
+    ///
+    /// Separado de <see cref="EntrouEm"/> de proposito: entre entrar na fila e
+    /// alguem assumir existe a espera, e somar as duas coisas faria todo
+    /// atendimento parecer durar o tempo do plantao.
+    /// </summary>
+    public DateTime? AssumidaEm { get; set; }
+
+    /// <summary>
+    /// Quando o atendimento desta passagem terminou.
+    ///
+    /// Distinto de <see cref="SaiuEm"/>, que marca a saida da fila mesmo quando
+    /// ninguem chegou a atender — encaminhar sem atender fecha a passagem, mas
+    /// nao e producao de ninguem.
+    /// </summary>
+    public DateTime? ConcluidaEm { get; set; }
+
+    /// <summary>Quem mandou o paciente para esta fila, quando veio de outra.</summary>
+    public Guid? EncaminhadaPorId { get; set; }
+    public Profissional? EncaminhadaPor { get; set; }
+
+    /// <summary>
+    /// De qual fila o paciente veio.
+    ///
+    /// E o que permite devolver para quem encaminhou sem obrigar o profissional
+    /// a lembrar de onde o paciente saiu.
+    /// </summary>
+    public Especialidade? EncaminhadaDe { get; set; }
 }
 
 /// <summary>

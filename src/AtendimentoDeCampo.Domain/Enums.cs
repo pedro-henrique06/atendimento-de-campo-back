@@ -346,5 +346,20 @@ public enum AcaoAuditoria
     /// cobrem — o medico tria quando a fila estoura. Fica registrado porque a
     /// excecao precisa deixar rastro para valer como excecao.
     /// </summary>
-    AssumiuForaDaSuaFila = 11
+    AssumiuForaDaSuaFila = 11,
+
+    /// <summary>Deu alta: encerrou a propria etapa e o atendimento junto.</summary>
+    DeuAlta = 12,
+
+    /// <summary>Devolveu o paciente para a fila que o encaminhou.</summary>
+    DevolveuParaOrigem = 13,
+
+    /// <summary>
+    /// Cancelou uma fila que ficou pendente ao dar alta.
+    ///
+    /// Fica como acao propria, e nao como detalhe da alta: tirar o paciente da
+    /// fila da odontologia e uma decisao clinica de alguem, e daqui a um mes a
+    /// pergunta vai ser quem tirou.
+    /// </summary>
+    CancelouFilaPendente = 14
 }
