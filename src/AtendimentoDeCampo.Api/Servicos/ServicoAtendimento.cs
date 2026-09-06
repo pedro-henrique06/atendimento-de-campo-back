@@ -57,6 +57,26 @@ public sealed class ServicoAtendimento
             erros.Add("Informe a data de nascimento ou a idade aproximada.");
         }
 
+        /*
+            Menor de idade exige nome da mae e endereco. Em campo a crianca
+            costuma chegar acompanhada de quem nao e o responsavel legal, e sao
+            esses dois campos que permitem reencontrar a familia depois.
+
+            A regra usa a idade calculada, e nao um campo a parte, para valer
+            igual para quem informou a data de nascimento e para quem so soube
+            dizer a idade aproximada.
+        */
+        var idade = CalculadoraIdade.Calcular(
+            req.Paciente.DataNascimento, req.Paciente.IdadeAproximada);
+
+        erros.AddRange(RegrasDoMenor.Validar(idade, req.Paciente.NomeDaMae, req.Paciente.Endereco));
+
+        if (req.Paciente.ComunidadeId is Guid comunidadeId &&
+            !await _db.Comunidades.AnyAsync(c => c.Id == comunidadeId && c.Ativa, ct))
+        {
+            erros.Add("Comunidade nao encontrada ou inativa.");
+        }
+
         if (erros.Count > 0)
         {
             throw new RegraDeNegocioException(erros);
@@ -143,6 +163,10 @@ public sealed class ServicoAtendimento
         paciente.NumeroDocumento = string.IsNullOrWhiteSpace(dados.NumeroDocumento)
             ? null
             : dados.NumeroDocumento.Trim();
+        paciente.CartaoSus = Limpar(dados.CartaoSus);
+        paciente.ComunidadeId = dados.ComunidadeId;
+        paciente.NomeDaMae = Limpar(dados.NomeDaMae);
+        paciente.Endereco = Limpar(dados.Endereco);
         paciente.DataNascimento = dados.DataNascimento;
         paciente.IdadeAproximada = dados.IdadeAproximada;
         paciente.Sexo = dados.Sexo;
@@ -156,6 +180,10 @@ public sealed class ServicoAtendimento
 
         return paciente;
     }
+
+    /// <summary>Texto vazio vira nulo: "" e "   " nao sao um dado preenchido.</summary>
+    private static string? Limpar(string? valor)
+        => string.IsNullOrWhiteSpace(valor) ? null : valor.Trim();
 
     /// <summary>
     /// Sorteia um codigo de paciente ainda livre. Nao grava nada: o cadastro so
@@ -192,7 +220,10 @@ public sealed class ServicoAtendimento
 
         var paciente = normalizado is null
             ? null
-            : await _db.Pacientes.AsNoTracking().FirstOrDefaultAsync(p => p.Codigo == normalizado, ct);
+            : await _db.Pacientes
+                .AsNoTracking()
+                .Include(p => p.Comunidade)
+                .FirstOrDefaultAsync(p => p.Codigo == normalizado, ct);
 
         if (paciente is null)
         {
@@ -201,6 +232,7 @@ public sealed class ServicoAtendimento
             paciente = await _db.Atendimentos
                 .AsNoTracking()
                 .Where(a => a.Codigo == doAtendimento)
+                .Include(a => a.Paciente).ThenInclude(p => p!.Comunidade)
                 .Select(a => a.Paciente!)
                 .FirstOrDefaultAsync(ct);
         }
@@ -277,6 +309,9 @@ public sealed class ServicoAtendimento
         triagem.SaturacaoO2 = req.SaturacaoO2;
         triagem.TemperaturaCelsius = req.TemperaturaCelsius;
         triagem.GlicemiaCapilar = req.GlicemiaCapilar;
+        triagem.PesoKg = req.PesoKg;
+        triagem.AlturaCm = req.AlturaCm;
+        triagem.EscalaDor = req.EscalaDor;
         triagem.Sintomas = req.Sintomas;
         triagem.OutroSintoma = req.OutroSintoma;
         triagem.MedicamentosEmUso = req.MedicamentosEmUso;
@@ -969,7 +1004,7 @@ public sealed class ServicoAtendimento
         var atendimento = await _db.Atendimentos
             .AsNoTracking()
             .Include(a => a.Base)
-            .Include(a => a.Paciente)
+            .Include(a => a.Paciente).ThenInclude(p => p!.Comunidade)
             .Include(a => a.CriadoPor)
             .Include(a => a.FinalizadoPor)
             .Include(a => a.PassagensFila)
@@ -1217,6 +1252,9 @@ public sealed class ServicoAtendimento
         ["triagem.saturacaoO2"] = t.SaturacaoO2?.ToString(),
         ["triagem.temperatura"] = t.TemperaturaCelsius?.ToString(CultureInfo.InvariantCulture),
         ["triagem.glicemia"] = t.GlicemiaCapilar?.ToString(),
+        ["triagem.peso"] = t.PesoKg?.ToString(CultureInfo.InvariantCulture),
+        ["triagem.altura"] = t.AlturaCm?.ToString(),
+        ["triagem.escalaDor"] = t.EscalaDor?.ToString(),
         ["triagem.sintomas"] = t.Sintomas.Count == 0 ? null : string.Join(",", t.Sintomas),
         ["triagem.outroSintoma"] = t.OutroSintoma,
         ["triagem.medicamentosEmUso"] = t.MedicamentosEmUso,
