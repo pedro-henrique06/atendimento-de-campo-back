@@ -430,6 +430,14 @@ public sealed class ServicoAtendimento
 
         await ValidarCidAsync(req.Cid10Codigo, req.Desfecho, ct);
 
+        // Fechar a consulta com desfecho "Encaminhado" abre a fila de destino, e
+        // por aqui a volta para a triagem passaria sem a checagem das outras
+        // duas rotas. Antes de gravar, para nao deixar a ficha salva pela metade.
+        if (req.Desfecho == DesfechoConsulta.Encaminhado && req.EncaminhadoPara is Especialidade paraOnde)
+        {
+            RecusarVoltaParaTriagem(atendimento, paraOnde);
+        }
+
         var antes = novo ? new Dictionary<string, string?>() : SnapshotConsulta(consulta);
 
         consulta.SintomasDescricao = req.SintomasDescricao;
@@ -965,6 +973,10 @@ public sealed class ServicoAtendimento
             throw new RegraDeNegocioException("Esta etapa ja foi concluida.");
         }
 
+        // Vale aqui tambem, e nao so na devolucao: uma regra que a rota vizinha
+        // deixa passar nao e regra, e os dois botoes ficam lado a lado na tela.
+        RecusarVoltaParaTriagem(atendimento, destino);
+
         /*
             Nada clinico registrado significa que o paciente nunca foi atendido
             aqui: a etapa e cancelada, nao concluida. Marcar como concluida
@@ -1015,6 +1027,8 @@ public sealed class ServicoAtendimento
     ///
     /// A etapa de destino ja existe e ja esta concluida; <see cref="AbrirFilaAsync"/>
     /// a reabre com a ficha que ela ja tinha, e nao como consulta nova.
+    ///
+    /// A triagem e a excecao: dela nao se volta. Ver <see cref="RecusarVoltaParaTriagem"/>.
     /// </summary>
     public async Task<ProntuarioDto> DevolverAsync(
         Guid atendimentoId,
@@ -1043,8 +1057,43 @@ public sealed class ServicoAtendimento
             ?? throw new RegraDeNegocioException(
                 "Este atendimento nao veio de outra fila: nao ha para onde devolver.");
 
+        RecusarVoltaParaTriagem(atendimento, destino);
+
         return await EncaminharAsync(atendimentoId, origem, destino, motivo, profissionalId,
             AcaoAuditoria.DevolveuParaOrigem, ct);
+    }
+
+    /// <summary>
+    /// Da triagem nao se volta.
+    ///
+    /// A triagem e a porta de entrada, e quem ja passou por ela ja tem risco
+    /// classificado e lugar na fila. Reabri-la joga o paciente de volta para o
+    /// comeco da linha, faz o risco ser classificado de novo por outra pessoa —
+    /// possivelmente para outra cor — e some com ele da fila em que estava sendo
+    /// esperado.
+    ///
+    /// Quem chegou na fila errada tem o encaminhamento para a fila certa; o
+    /// caminho de volta e para as filas clinicas, nao para a porta.
+    ///
+    /// A excecao e o paciente que nunca foi triado: acontece quando o medico
+    /// atende direto quem chega passando mal, e mandar para a triagem depois nao
+    /// e voltar — e ir pela primeira vez.
+    /// </summary>
+    private static void RecusarVoltaParaTriagem(Atendimento atendimento, Especialidade destino)
+    {
+        if (destino != Especialidade.Triagem)
+        {
+            return;
+        }
+
+        var triagem = atendimento.Etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Triagem);
+
+        if (triagem?.Status == StatusEtapa.Concluida)
+        {
+            throw new RegraDeNegocioException(
+                "Este paciente ja foi triado e nao volta para a triagem. " +
+                "Encaminhe para a fila clinica adequada.");
+        }
     }
 
     /// <summary>

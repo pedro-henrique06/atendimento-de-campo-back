@@ -248,6 +248,108 @@ public class AltaEDevolucaoTests
     }
 
     // -----------------------------------------------------------------------
+    // Da triagem nao se volta
+    // -----------------------------------------------------------------------
+
+    [SkippableFact]
+    public async Task Nao_devolve_para_a_triagem()
+    {
+        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
+
+        var client = await ProfissionalAsync("triagem.devolve");
+        var atendimento = await AbrirAsync(client, "Paciente Ja Triado");
+
+        // A triagem encaminhou para a clinica geral: a fila de origem da clinica
+        // geral e a triagem, e sem a regra o botao de devolver mandaria de volta.
+        await TriarParaAsync(client, atendimento.Id, Especialidade.ClinicaGeral);
+
+        var resposta = await client.PostAsJsonAsync(
+            $"/api/atendimentos/{atendimento.Id}/etapas/ClinicaGeral/devolver",
+            new { motivo = "Nao e caso clinico." },
+            Json);
+
+        // Reabrir a triagem joga o paciente para o comeco da fila e faz o risco
+        // ser classificado de novo, possivelmente para outra cor.
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Contains("ja foi triado", await resposta.Content.ReadAsStringAsync());
+    }
+
+    [SkippableFact]
+    public async Task Nao_encaminha_de_volta_para_a_triagem()
+    {
+        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
+
+        var client = await ProfissionalAsync("triagem.encaminha");
+        var atendimento = await AbrirAsync(client, "Paciente Triado Que Nao Volta");
+
+        await TriarParaAsync(client, atendimento.Id, Especialidade.ClinicaGeral);
+
+        var resposta = await EncaminharAsync(
+            client, atendimento.Id, Especialidade.ClinicaGeral, Especialidade.Triagem,
+            "Quero que triem de novo.");
+
+        // A regra vale nos dois caminhos: bloquear so a devolucao deixaria o
+        // mesmo efeito disponivel pelo botao ao lado.
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+    }
+
+    [SkippableFact]
+    public async Task Nao_fecha_consulta_encaminhando_para_a_triagem()
+    {
+        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
+
+        var client = await ProfissionalAsync("triagem.consulta");
+        var atendimento = await AbrirAsync(client, "Paciente Da Consulta Que Nao Volta");
+
+        await TriarParaAsync(client, atendimento.Id, Especialidade.ClinicaGeral);
+
+        var resposta = await client.PutAsJsonAsync($"/api/atendimentos/{atendimento.Id}/consulta", new
+        {
+            especialidade = "ClinicaGeral",
+            cid10Codigo = "M79.1",
+            desfecho = "Encaminhado",
+            encaminhadoPara = "Triagem"
+        }, Json);
+
+        // O terceiro caminho: fechar a consulta com desfecho "Encaminhado"
+        // tambem abre a fila de destino.
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+
+        // E a ficha nao pode ter sido gravada pela metade: a checagem acontece
+        // antes de escrever.
+        var prontuario = await client.GetFromJsonAsync<ProntuarioDto>(
+            $"/api/atendimentos/{atendimento.Id}", Json);
+
+        Assert.Empty(prontuario!.Consultas);
+    }
+
+    [SkippableFact]
+    public async Task Quem_nunca_foi_triado_ainda_pode_ir_para_a_triagem()
+    {
+        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
+
+        var client = await ProfissionalAsync("triagem.primeira");
+        var atendimento = await AbrirAsync(client, "Paciente Atendido Sem Triagem");
+
+        // Consulta direto, sem passar pela triagem: acontece quando o medico
+        // atende quem chega passando mal.
+        (await client.PutAsJsonAsync($"/api/atendimentos/{atendimento.Id}/consulta", new
+        {
+            especialidade = "ClinicaGeral",
+            cid10Codigo = "M79.1",
+            desfecho = "Alta"
+        }, Json)).EnsureSuccessStatusCode();
+
+        var resposta = await EncaminharAsync(
+            client, atendimento.Id, Especialidade.Triagem, Especialidade.Enfermagem,
+            "Encaminho para a enfermagem.");
+
+        // A fila da triagem continua aberta e utilizavel: mandar para la quem
+        // nunca foi triado nao e voltar, e ir pela primeira vez.
+        resposta.EnsureSuccessStatusCode();
+    }
+
+    // -----------------------------------------------------------------------
     // Alta
     // -----------------------------------------------------------------------
 
