@@ -69,6 +69,40 @@ public enum Especialidade
     SaudeMental = 6
 }
 
+/// <summary>
+/// Raca/cor pela classificacao do IBGE, que e a que os formularios de campo e o
+/// SUS usam.
+///
+/// Distinta de <c>Paciente.Etnia</c>: raca/cor e uma lista fechada de cinco
+/// valores, e etnia e o povo indigena a que a pessoa pertence — Yanomami,
+/// Ye'kwana —, que nao cabe em lista nenhuma. Juntar as duas apagaria a etnia,
+/// que e justamente o dado que orienta atendimento a populacao indigena.
+///
+/// <see cref="NaoInformado"/> existe porque a pergunta e autodeclarada e a
+/// pessoa pode nao querer responder — e chutar por aparencia e pior que nao ter.
+/// </summary>
+public enum RacaCor
+{
+    NaoInformado = 0,
+    Indigena = 1,
+    Branca = 2,
+    Preta = 3,
+    Parda = 4,
+    Amarela = 5
+}
+
+/// <summary>
+/// Resultado de teste rapido.
+///
+/// So tem os dois resultados: a coluna anulavel ja diz "nao foi feito", e um
+/// terceiro valor para isso criaria duas formas de dizer a mesma coisa.
+/// </summary>
+public enum ResultadoTesteRapido
+{
+    Positivo = 0,
+    Negativo = 1
+}
+
 public enum Sexo
 {
     NaoInformado = 0,
@@ -167,7 +201,17 @@ public enum CondicaoCronica
     Obesidade = 3,
     Cardiopatia = 4,
     Epilepsia = 5,
-    Outro = 6
+    Outro = 6,
+
+    /// <summary>
+    /// Tabagismo. Consta dos antecedentes em todos os formularios de papel, ao
+    /// lado de HAS e DM.
+    ///
+    /// No fim da lista, e nao ao lado das outras cronicas: o valor e gravado
+    /// como inteiro, e inserir no meio trocaria a condicao dos pacientes ja
+    /// cadastrados.
+    /// </summary>
+    Tabagista = 7
 }
 
 public enum Vulnerabilidade

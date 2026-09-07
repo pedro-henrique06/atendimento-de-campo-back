@@ -164,6 +164,14 @@ public sealed class ServicoAtendimento
             ? null
             : dados.NumeroDocumento.Trim();
         paciente.CartaoSus = Limpar(dados.CartaoSus);
+        paciente.Cpf = Limpar(dados.Cpf);
+        paciente.RacaCor = dados.RacaCor;
+        paciente.Etnia = Limpar(dados.Etnia);
+        paciente.PoloBase = Limpar(dados.PoloBase);
+        paciente.Dsei = Limpar(dados.Dsei);
+        paciente.MunicipioNascimento = Limpar(dados.MunicipioNascimento);
+        paciente.PaisNascimento = Limpar(dados.PaisNascimento);
+        paciente.EstadoResidencia = Limpar(dados.EstadoResidencia);
         paciente.ComunidadeId = dados.ComunidadeId;
         paciente.NomeDaMae = Limpar(dados.NomeDaMae);
         paciente.Endereco = Limpar(dados.Endereco);
@@ -311,6 +319,16 @@ public sealed class ServicoAtendimento
         triagem.GlicemiaCapilar = req.GlicemiaCapilar;
         triagem.PesoKg = req.PesoKg;
         triagem.AlturaCm = req.AlturaCm;
+        triagem.CircunferenciaCefalicaCm = req.CircunferenciaCefalicaCm;
+        triagem.TesteRapidoCovid = req.TesteRapidoCovid;
+        triagem.TesteRapidoMalaria = req.TesteRapidoMalaria;
+        triagem.TeveCirurgiaPrevia = req.TeveCirurgiaPrevia;
+
+        // So guarda a lista quando houve cirurgia: "quais" preenchido junto de
+        // "nao teve" e contradicao gravada, e alguem vai ler so um dos dois.
+        triagem.CirurgiasPrevias = req.TeveCirurgiaPrevia == true
+            ? Limpar(req.CirurgiasPrevias)
+            : null;
         triagem.EscalaDor = req.EscalaDor;
         triagem.Sintomas = req.Sintomas;
         triagem.OutroSintoma = req.OutroSintoma;
@@ -441,6 +459,9 @@ public sealed class ServicoAtendimento
         var antes = novo ? new Dictionary<string, string?>() : SnapshotConsulta(consulta);
 
         consulta.SintomasDescricao = req.SintomasDescricao;
+        consulta.HistoriaClinica = req.HistoriaClinica;
+        consulta.ExameFisico = req.ExameFisico;
+        consulta.OrientacoesGerais = req.OrientacoesGerais;
         consulta.Cid10Codigo = req.Cid10Codigo;
         consulta.DiagnosticoObservacao = req.DiagnosticoObservacao;
         consulta.Conduta = req.Conduta;
@@ -1558,6 +1579,10 @@ public sealed class ServicoAtendimento
         ["triagem.glicemia"] = t.GlicemiaCapilar?.ToString(),
         ["triagem.peso"] = t.PesoKg?.ToString(CultureInfo.InvariantCulture),
         ["triagem.altura"] = t.AlturaCm?.ToString(),
+        ["triagem.circunferenciaCefalica"] = t.CircunferenciaCefalicaCm?.ToString(CultureInfo.InvariantCulture),
+        ["triagem.testeRapidoCovid"] = t.TesteRapidoCovid?.ToString(),
+        ["triagem.testeRapidoMalaria"] = t.TesteRapidoMalaria?.ToString(),
+        ["triagem.cirurgiasPrevias"] = t.CirurgiasPrevias,
         ["triagem.escalaDor"] = t.EscalaDor?.ToString(),
         ["triagem.sintomas"] = t.Sintomas.Count == 0 ? null : string.Join(",", t.Sintomas),
         ["triagem.outroSintoma"] = t.OutroSintoma,
@@ -1575,6 +1600,9 @@ public sealed class ServicoAtendimento
         ["consulta.cid10"] = c.Cid10Codigo,
         ["consulta.diagnosticoObservacao"] = c.DiagnosticoObservacao,
         ["consulta.conduta"] = c.Conduta,
+        ["consulta.historiaClinica"] = c.HistoriaClinica,
+        ["consulta.exameFisico"] = c.ExameFisico,
+        ["consulta.orientacoesGerais"] = c.OrientacoesGerais,
         ["consulta.desfecho"] = c.Desfecho?.ToString(),
         ["consulta.encaminhadoPara"] = c.EncaminhadoPara?.ToString(),
         ["consulta.sintomasSaudeMental"] = c.SintomasSaudeMental.Count == 0 ? null : string.Join(",", c.SintomasSaudeMental),
