@@ -146,6 +146,10 @@ public class AtendimentoDbContext : DbContext
             e.Property(x => x.Codigo).IsRequired().HasMaxLength(12);
             e.HasIndex(x => x.Codigo).IsUnique();
             e.Property(x => x.QueixaPrincipal).HasMaxLength(500);
+            e.Property(x => x.DesfechoDetalhe).HasMaxLength(300);
+
+            // A coordenacao vai querer contar obitos e transferencias por base.
+            e.HasIndex(x => new { x.BaseId, x.Desfecho });
 
             e.HasOne(x => x.Base)
                 .WithMany(x => x.Atendimentos)

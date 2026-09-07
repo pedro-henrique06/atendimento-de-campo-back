@@ -78,7 +78,8 @@ public static class Mapeadores
             a.QueixaPrincipal,
             etapas,
             a.CriadoEm,
-            a.FinalizadoEm);
+            a.FinalizadoEm,
+            a.Desfecho);
     }
 
     public static ProntuarioDto ParaProntuario(Atendimento a)
@@ -134,6 +135,8 @@ public static class Mapeadores
             a.CriadoEm,
             a.FinalizadoPor?.Nome,
             a.FinalizadoEm,
+            a.Desfecho,
+            a.DesfechoDetalhe,
             triagemEtapa?.Triagem is null ? null : ParaTriagemDto(triagemEtapa, idade),
             consultas,
             odontoEtapa?.Odontologia is null ? null : ParaOdontologiaDto(odontoEtapa),

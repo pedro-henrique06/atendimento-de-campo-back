@@ -107,6 +107,29 @@ public enum StatusAtendimento
     Cancelado = 4
 }
 
+/// <summary>
+/// Como o atendimento terminou — o bloco "Desfecho" do formulario de papel.
+///
+/// Fica separado de <see cref="StatusAtendimento"/> de proposito. O status
+/// responde "ainda esta aberto?", e e o que trava edicao, encaminhamento e
+/// alta; o desfecho responde "terminou como?". Fossem a mesma coisa, toda
+/// checagem `== Finalizado` espalhada pelo servico precisaria virar
+/// `== Finalizado || == Obito`, e bastaria esquecer uma para o atendimento de
+/// um paciente morto voltar a aceitar edicao.
+/// </summary>
+public enum DesfechoAtendimento
+{
+    Alta = 0,
+
+    /// <summary>Transferido para hospital. O destino e obrigatorio.</summary>
+    TransferenciaHospitalar = 1,
+
+    Obito = 2,
+
+    /// <summary>Qualquer outro fecho. Exige descricao.</summary>
+    Outro = 3
+}
+
 public enum StatusEtapa
 {
     Aguardando = 0,
@@ -361,5 +384,20 @@ public enum AcaoAuditoria
     /// fila da odontologia e uma decisao clinica de alguem, e daqui a um mes a
     /// pergunta vai ser quem tirou.
     /// </summary>
-    CancelouFilaPendente = 14
+    CancelouFilaPendente = 14,
+
+    /// <summary>
+    /// Registrou o obito do paciente.
+    ///
+    /// Acao propria, e nao um detalhe do encerramento: daqui a um ano a
+    /// pergunta vai ser quem registrou e quando, e a resposta nao pode depender
+    /// de ler o diff de um campo.
+    /// </summary>
+    RegistrouObito = 15,
+
+    /// <summary>Transferiu o paciente para um hospital.</summary>
+    TransferiuParaHospital = 16,
+
+    /// <summary>Encerrou por outro motivo, descrito no registro.</summary>
+    EncerrouPorOutroMotivo = 17
 }

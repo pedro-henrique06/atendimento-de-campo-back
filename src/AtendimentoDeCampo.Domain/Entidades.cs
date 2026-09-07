@@ -199,6 +199,23 @@ public class Atendimento
     public Profissional? FinalizadoPor { get; set; }
     public DateTime? FinalizadoEm { get; set; }
 
+    /// <summary>
+    /// Como terminou. Nulo enquanto esta aberto.
+    ///
+    /// Anulavel tambem para os atendimentos ja finalizados antes deste campo
+    /// existir: nao ha de onde deduzir o desfecho deles, e preencher todos como
+    /// "Alta" inventaria dado — inclusive contando como alta quem morreu.
+    /// </summary>
+    public DesfechoAtendimento? Desfecho { get; set; }
+
+    /// <summary>
+    /// Para onde foi transferido, ou qual foi o outro motivo.
+    ///
+    /// "Transferido" sem dizer para onde nao permite ninguem ir atras do
+    /// paciente depois, que e a unica razao de registrar a transferencia.
+    /// </summary>
+    public string? DesfechoDetalhe { get; set; }
+
     public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
 
     public ICollection<Etapa> Etapas { get; set; } = new List<Etapa>();

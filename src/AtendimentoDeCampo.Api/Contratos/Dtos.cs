@@ -183,6 +183,24 @@ public sealed record DevolverRequest
     public string Motivo { get; init; } = string.Empty;
 }
 
+/// <summary>Encerra o atendimento com o desfecho: alta, transferencia, obito ou outro.</summary>
+public sealed record EncerrarRequest
+{
+    /// <summary>Alta quando nao informado, que e o caso comum.</summary>
+    public DesfechoAtendimento Desfecho { get; init; } = DesfechoAtendimento.Alta;
+
+    /// <summary>
+    /// Para onde foi transferido, ou qual o outro motivo. Obrigatorio nesses
+    /// dois casos: "transferido" sem dizer para onde nao permite ninguem ir
+    /// atras do paciente depois.
+    /// </summary>
+    [MaxLength(300)]
+    public string? Detalhe { get; init; }
+
+    /// <inheritdoc cref="DarAltaRequest.CancelarPendentes"/>
+    public bool CancelarPendentes { get; init; }
+}
+
 /// <summary>Alta: encerra a etapa de quem atende e o atendimento junto.</summary>
 public sealed record DarAltaRequest
 {
@@ -355,7 +373,9 @@ public sealed record AtendimentoResumoDto(
     string? Resumo,
     List<EtapaResumoDto> Etapas,
     DateTime CriadoEm,
-    DateTime? FinalizadoEm);
+    DateTime? FinalizadoEm,
+    /// <summary>Como terminou: a lista marca obito e transferencia sem precisar abrir a ficha.</summary>
+    DesfechoAtendimento? Desfecho = null);
 
 public sealed record EsperaFilaDto(
     Especialidade Especialidade,
@@ -387,6 +407,10 @@ public sealed record ProntuarioDto(
     DateTime CriadoEm,
     string? FinalizadoPor,
     DateTime? FinalizadoEm,
+    /// <summary>Como terminou. Nulo enquanto aberto, e nulo tambem nos atendimentos fechados antes deste campo existir.</summary>
+    DesfechoAtendimento? Desfecho,
+    /// <summary>Para onde foi transferido, ou qual foi o outro motivo.</summary>
+    string? DesfechoDetalhe,
     TriagemDto? Triagem,
     List<ConsultaDto> Consultas,
     OdontologiaDto? Odontologia,

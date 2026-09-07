@@ -87,10 +87,27 @@ public class AtendimentosController : ControllerBase
         => Ok(await _servico.DevolverAsync(id, especialidade, req.Motivo, ProfissionalId, ct));
 
     /// <summary>
-    /// Da alta: encerra esta etapa e o atendimento junto.
+    /// Encerra o atendimento por esta fila, com o desfecho: alta, transferencia
+    /// para hospital, obito ou outro motivo.
     ///
     /// Recusa com a lista das filas pendentes quando ha alguma e o pedido nao
     /// confirma o cancelamento — a tela pergunta antes.
+    /// </summary>
+    [HttpPost("{id:guid}/etapas/{especialidade}/encerrar")]
+    public async Task<ActionResult<ProntuarioDto>> Encerrar(
+        Guid id,
+        Especialidade especialidade,
+        [FromBody] EncerrarRequest req,
+        CancellationToken ct)
+        => Ok(await _servico.EncerrarAsync(
+            id, especialidade, req.Desfecho, req.Detalhe, req.CancelarPendentes, ProfissionalId, ct));
+
+    /// <summary>
+    /// A alta, como estava antes de existirem os outros desfechos.
+    ///
+    /// Mantida porque o front e a API sobem em servicos separados: durante a
+    /// janela de deploy, a versao antiga da tela ainda chama esta rota, e sem
+    /// ela o botao de alta responderia 404 para a equipe em campo.
     /// </summary>
     [HttpPost("{id:guid}/etapas/{especialidade}/alta")]
     public async Task<ActionResult<ProntuarioDto>> DarAlta(
@@ -98,7 +115,9 @@ public class AtendimentosController : ControllerBase
         Especialidade especialidade,
         [FromBody] DarAltaRequest req,
         CancellationToken ct)
-        => Ok(await _servico.DarAltaAsync(id, especialidade, req.CancelarPendentes, ProfissionalId, ct));
+        => Ok(await _servico.EncerrarAsync(
+            id, especialidade, DesfechoAtendimento.Alta, null, req.CancelarPendentes,
+            ProfissionalId, ct));
 
     /// <summary>Devolve a etapa para a fila.</summary>
     [HttpPost("{id:guid}/etapas/{especialidade}/liberar")]
