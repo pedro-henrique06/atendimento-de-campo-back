@@ -69,6 +69,40 @@ public enum Especialidade
     SaudeMental = 6
 }
 
+/// <summary>
+/// Raca/cor pela classificacao do IBGE, que e a que os formularios de campo e o
+/// SUS usam.
+///
+/// Distinta de <c>Paciente.Etnia</c>: raca/cor e uma lista fechada de cinco
+/// valores, e etnia e o povo indigena a que a pessoa pertence — Yanomami,
+/// Ye'kwana —, que nao cabe em lista nenhuma. Juntar as duas apagaria a etnia,
+/// que e justamente o dado que orienta atendimento a populacao indigena.
+///
+/// <see cref="NaoInformado"/> existe porque a pergunta e autodeclarada e a
+/// pessoa pode nao querer responder — e chutar por aparencia e pior que nao ter.
+/// </summary>
+public enum RacaCor
+{
+    NaoInformado = 0,
+    Indigena = 1,
+    Branca = 2,
+    Preta = 3,
+    Parda = 4,
+    Amarela = 5
+}
+
+/// <summary>
+/// Resultado de teste rapido.
+///
+/// So tem os dois resultados: a coluna anulavel ja diz "nao foi feito", e um
+/// terceiro valor para isso criaria duas formas de dizer a mesma coisa.
+/// </summary>
+public enum ResultadoTesteRapido
+{
+    Positivo = 0,
+    Negativo = 1
+}
+
 public enum Sexo
 {
     NaoInformado = 0,
@@ -105,6 +139,29 @@ public enum StatusAtendimento
     Finalizado = 2,
     Evadido = 3,
     Cancelado = 4
+}
+
+/// <summary>
+/// Como o atendimento terminou — o bloco "Desfecho" do formulario de papel.
+///
+/// Fica separado de <see cref="StatusAtendimento"/> de proposito. O status
+/// responde "ainda esta aberto?", e e o que trava edicao, encaminhamento e
+/// alta; o desfecho responde "terminou como?". Fossem a mesma coisa, toda
+/// checagem `== Finalizado` espalhada pelo servico precisaria virar
+/// `== Finalizado || == Obito`, e bastaria esquecer uma para o atendimento de
+/// um paciente morto voltar a aceitar edicao.
+/// </summary>
+public enum DesfechoAtendimento
+{
+    Alta = 0,
+
+    /// <summary>Transferido para hospital. O destino e obrigatorio.</summary>
+    TransferenciaHospitalar = 1,
+
+    Obito = 2,
+
+    /// <summary>Qualquer outro fecho. Exige descricao.</summary>
+    Outro = 3
 }
 
 public enum StatusEtapa
@@ -144,7 +201,17 @@ public enum CondicaoCronica
     Obesidade = 3,
     Cardiopatia = 4,
     Epilepsia = 5,
-    Outro = 6
+    Outro = 6,
+
+    /// <summary>
+    /// Tabagismo. Consta dos antecedentes em todos os formularios de papel, ao
+    /// lado de HAS e DM.
+    ///
+    /// No fim da lista, e nao ao lado das outras cronicas: o valor e gravado
+    /// como inteiro, e inserir no meio trocaria a condicao dos pacientes ja
+    /// cadastrados.
+    /// </summary>
+    Tabagista = 7
 }
 
 public enum Vulnerabilidade
@@ -361,5 +428,20 @@ public enum AcaoAuditoria
     /// fila da odontologia e uma decisao clinica de alguem, e daqui a um mes a
     /// pergunta vai ser quem tirou.
     /// </summary>
-    CancelouFilaPendente = 14
+    CancelouFilaPendente = 14,
+
+    /// <summary>
+    /// Registrou o obito do paciente.
+    ///
+    /// Acao propria, e nao um detalhe do encerramento: daqui a um ano a
+    /// pergunta vai ser quem registrou e quando, e a resposta nao pode depender
+    /// de ler o diff de um campo.
+    /// </summary>
+    RegistrouObito = 15,
+
+    /// <summary>Transferiu o paciente para um hospital.</summary>
+    TransferiuParaHospital = 16,
+
+    /// <summary>Encerrou por outro motivo, descrito no registro.</summary>
+    EncerrouPorOutroMotivo = 17
 }

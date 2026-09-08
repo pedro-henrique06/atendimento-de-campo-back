@@ -3,6 +3,7 @@ using System;
 using AtendimentoDeCampo.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AtendimentoDeCampo.Infrastructure.Migrations
 {
     [DbContext(typeof(AtendimentoDbContext))]
-    partial class AtendimentoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260907173849_DesfechoDoAtendimento")]
+    partial class DesfechoDoAtendimento
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -257,18 +260,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
 
                     b.Property<Guid>("EtapaId")
                         .HasColumnType("uuid");
-
-                    b.Property<string>("ExameFisico")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("HistoriaClinica")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("OrientacoesGerais")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
 
                     b.Property<int[]>("PerdasVivenciadas")
                         .IsRequired()
@@ -617,38 +608,18 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<bool>("ConsentimentoRegistro")
                         .HasColumnType("boolean");
 
-                    b.Property<string>("Cpf")
-                        .HasMaxLength(14)
-                        .HasColumnType("character varying(14)");
-
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateOnly?>("DataNascimento")
                         .HasColumnType("date");
 
-                    b.Property<string>("Dsei")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
                     b.Property<string>("Endereco")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
-                    b.Property<string>("EstadoResidencia")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("Etnia")
-                        .HasMaxLength(120)
-                        .HasColumnType("character varying(120)");
-
                     b.Property<int?>("IdadeAproximada")
                         .HasColumnType("integer");
-
-                    b.Property<string>("MunicipioNascimento")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
 
                     b.Property<string>("Nome")
                         .IsRequired()
@@ -666,17 +637,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<string>("OutraCondicaoCronica")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
-
-                    b.Property<string>("PaisNascimento")
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)");
-
-                    b.Property<string>("PoloBase")
-                        .HasMaxLength(160)
-                        .HasColumnType("character varying(160)");
-
-                    b.Property<int>("RacaCor")
-                        .HasColumnType("integer");
 
                     b.Property<int>("Sexo")
                         .HasColumnType("integer");
@@ -842,13 +802,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<int?>("AlturaCm")
                         .HasColumnType("integer");
 
-                    b.Property<double?>("CircunferenciaCefalicaCm")
-                        .HasColumnType("double precision");
-
-                    b.Property<string>("CirurgiasPrevias")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
                     b.Property<int>("ClassificacaoRisco")
                         .HasColumnType("integer");
 
@@ -903,15 +856,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
 
                     b.Property<double?>("TemperaturaCelsius")
                         .HasColumnType("double precision");
-
-                    b.Property<int?>("TesteRapidoCovid")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("TesteRapidoMalaria")
-                        .HasColumnType("integer");
-
-                    b.Property<bool?>("TeveCirurgiaPrevia")
-                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 

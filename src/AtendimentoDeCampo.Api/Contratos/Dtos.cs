@@ -183,6 +183,24 @@ public sealed record DevolverRequest
     public string Motivo { get; init; } = string.Empty;
 }
 
+/// <summary>Encerra o atendimento com o desfecho: alta, transferencia, obito ou outro.</summary>
+public sealed record EncerrarRequest
+{
+    /// <summary>Alta quando nao informado, que e o caso comum.</summary>
+    public DesfechoAtendimento Desfecho { get; init; } = DesfechoAtendimento.Alta;
+
+    /// <summary>
+    /// Para onde foi transferido, ou qual o outro motivo. Obrigatorio nesses
+    /// dois casos: "transferido" sem dizer para onde nao permite ninguem ir
+    /// atras do paciente depois.
+    /// </summary>
+    [MaxLength(300)]
+    public string? Detalhe { get; init; }
+
+    /// <inheritdoc cref="DarAltaRequest.CancelarPendentes"/>
+    public bool CancelarPendentes { get; init; }
+}
+
 /// <summary>Alta: encerra a etapa de quem atende e o atendimento junto.</summary>
 public sealed record DarAltaRequest
 {
@@ -225,6 +243,36 @@ public sealed record DadosPacienteRequest
     /// </summary>
     [MaxLength(20)]
     public string? CartaoSus { get; init; }
+
+    /// <summary>
+    /// CPF, separado do documento: a pessoa tem CPF *e* RG, e como tipo de
+    /// documento um excluiria o outro.
+    /// </summary>
+    [MaxLength(14)]
+    public string? Cpf { get; init; }
+
+    /// <summary>Raca/cor autodeclarada, pela classificacao do IBGE.</summary>
+    public RacaCor RacaCor { get; init; } = RacaCor.NaoInformado;
+
+    /// <summary>Povo indigena. Distinto de raca/cor — ver <see cref="Domain.RacaCor"/>.</summary>
+    [MaxLength(120)]
+    public string? Etnia { get; init; }
+
+    [MaxLength(160)]
+    public string? PoloBase { get; init; }
+
+    /// <summary>Distrito Sanitario Especial Indigena.</summary>
+    [MaxLength(160)]
+    public string? Dsei { get; init; }
+
+    [MaxLength(160)]
+    public string? MunicipioNascimento { get; init; }
+
+    [MaxLength(80)]
+    public string? PaisNascimento { get; init; }
+
+    [MaxLength(80)]
+    public string? EstadoResidencia { get; init; }
 
     /// <summary>Escolhida da lista mantida pela coordenacao; nao e texto livre.</summary>
     public Guid? ComunidadeId { get; init; }
@@ -295,6 +343,17 @@ public sealed record PacienteDto(
     string? NumeroDocumento,
     /// <summary>Campo proprio: a pessoa pode ter RG <em>e</em> cartao do SUS.</summary>
     string? CartaoSus,
+    /// <summary>Campo proprio, pelo mesmo motivo do cartao do SUS.</summary>
+    string? Cpf,
+    RacaCor RacaCor,
+    /// <summary>Povo indigena. Distinto de raca/cor.</summary>
+    string? Etnia,
+    string? PoloBase,
+    /// <summary>Distrito Sanitario Especial Indigena.</summary>
+    string? Dsei,
+    string? MunicipioNascimento,
+    string? PaisNascimento,
+    string? EstadoResidencia,
     Guid? ComunidadeId,
     string? Comunidade,
     string? NomeDaMae,
@@ -355,7 +414,9 @@ public sealed record AtendimentoResumoDto(
     string? Resumo,
     List<EtapaResumoDto> Etapas,
     DateTime CriadoEm,
-    DateTime? FinalizadoEm);
+    DateTime? FinalizadoEm,
+    /// <summary>Como terminou: a lista marca obito e transferencia sem precisar abrir a ficha.</summary>
+    DesfechoAtendimento? Desfecho = null);
 
 public sealed record EsperaFilaDto(
     Especialidade Especialidade,
@@ -387,6 +448,10 @@ public sealed record ProntuarioDto(
     DateTime CriadoEm,
     string? FinalizadoPor,
     DateTime? FinalizadoEm,
+    /// <summary>Como terminou. Nulo enquanto aberto, e nulo tambem nos atendimentos fechados antes deste campo existir.</summary>
+    DesfechoAtendimento? Desfecho,
+    /// <summary>Para onde foi transferido, ou qual foi o outro motivo.</summary>
+    string? DesfechoDetalhe,
     TriagemDto? Triagem,
     List<ConsultaDto> Consultas,
     OdontologiaDto? Odontologia,
@@ -435,6 +500,24 @@ public sealed record RegistrarTriagemRequest
 
     [Range(20, 250)] public int? AlturaCm { get; init; }
 
+    /// <summary>Perimetro cefalico em centimetros.</summary>
+    [Range(20, 80)] public double? CircunferenciaCefalicaCm { get; init; }
+
+    /// <summary>Teste rapido de COVID-19. Nulo quando nao foi feito.</summary>
+    public ResultadoTesteRapido? TesteRapidoCovid { get; init; }
+
+    /// <summary>Teste rapido de malaria. Nulo quando nao foi feito.</summary>
+    public ResultadoTesteRapido? TesteRapidoMalaria { get; init; }
+
+    /// <summary>
+    /// Se ja passou por cirurgia. Nulo e "nao perguntei", que e diferente de
+    /// ter respondido que nao.
+    /// </summary>
+    public bool? TeveCirurgiaPrevia { get; init; }
+
+    [MaxLength(500)]
+    public string? CirurgiasPrevias { get; init; }
+
     /// <summary>
     /// Dor autorreferida de 0 a 10. De 0, e nao de 1: "sem dor" e resposta, e
     /// nulo e "nao perguntei".
@@ -481,6 +564,11 @@ public sealed record TriagemDto(
     int? GlicemiaCapilar,
     double? PesoKg,
     int? AlturaCm,
+    double? CircunferenciaCefalicaCm,
+    ResultadoTesteRapido? TesteRapidoCovid,
+    ResultadoTesteRapido? TesteRapidoMalaria,
+    bool? TeveCirurgiaPrevia,
+    string? CirurgiasPrevias,
     /// <summary>Calculado de peso e altura; nao e gravado.</summary>
     double? Imc,
     /// <summary>
@@ -539,6 +627,16 @@ public sealed record RegistrarConsultaRequest
     [MaxLength(2000)]
     public string? SintomasDescricao { get; init; }
 
+    /// <summary>
+    /// Historia clinica. Bloco proprio no formulario de papel: juntar com a
+    /// descricao dos sintomas faz a segunda pergunta deixar de ser respondida.
+    /// </summary>
+    [MaxLength(2000)]
+    public string? HistoriaClinica { get; init; }
+
+    [MaxLength(2000)]
+    public string? ExameFisico { get; init; }
+
     /// <summary>Codigo CID-10. Obrigatorio para concluir a consulta.</summary>
     [MaxLength(10)]
     public string? Cid10Codigo { get; init; }
@@ -548,6 +646,9 @@ public sealed record RegistrarConsultaRequest
 
     [MaxLength(2000)]
     public string? Conduta { get; init; }
+
+    [MaxLength(2000)]
+    public string? OrientacoesGerais { get; init; }
 
     public DesfechoConsulta? Desfecho { get; init; }
     public Especialidade? EncaminhadoPara { get; init; }
@@ -573,10 +674,13 @@ public sealed record ConsultaDto(
     Especialidade Especialidade,
     AutorDto? Profissional,
     string? SintomasDescricao,
+    string? HistoriaClinica,
+    string? ExameFisico,
     string? Cid10Codigo,
     string? Cid10Descricao,
     string? DiagnosticoObservacao,
     string? Conduta,
+    string? OrientacoesGerais,
     DesfechoConsulta? Desfecho,
     Especialidade? EncaminhadoPara,
     OrtopediaRequest? Ortopedia,

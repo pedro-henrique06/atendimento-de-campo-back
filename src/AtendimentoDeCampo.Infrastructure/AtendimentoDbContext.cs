@@ -106,6 +106,13 @@ public class AtendimentoDbContext : DbContext
             e.Property(x => x.Nome).IsRequired().HasMaxLength(200);
             e.Property(x => x.NumeroDocumento).HasMaxLength(60);
             e.Property(x => x.CartaoSus).HasMaxLength(20);
+            e.Property(x => x.Cpf).HasMaxLength(14);
+            e.Property(x => x.Etnia).HasMaxLength(120);
+            e.Property(x => x.PoloBase).HasMaxLength(160);
+            e.Property(x => x.Dsei).HasMaxLength(160);
+            e.Property(x => x.MunicipioNascimento).HasMaxLength(160);
+            e.Property(x => x.PaisNascimento).HasMaxLength(80);
+            e.Property(x => x.EstadoResidencia).HasMaxLength(80);
             e.Property(x => x.NomeDaMae).HasMaxLength(200);
             e.Property(x => x.Endereco).HasMaxLength(300);
             e.Property(x => x.Alergias).HasMaxLength(500);
@@ -146,6 +153,10 @@ public class AtendimentoDbContext : DbContext
             e.Property(x => x.Codigo).IsRequired().HasMaxLength(12);
             e.HasIndex(x => x.Codigo).IsUnique();
             e.Property(x => x.QueixaPrincipal).HasMaxLength(500);
+            e.Property(x => x.DesfechoDetalhe).HasMaxLength(300);
+
+            // A coordenacao vai querer contar obitos e transferencias por base.
+            e.HasIndex(x => new { x.BaseId, x.Desfecho });
 
             e.HasOne(x => x.Base)
                 .WithMany(x => x.Atendimentos)
@@ -197,6 +208,7 @@ public class AtendimentoDbContext : DbContext
         b.Entity<Triagem>(e =>
         {
             e.ToTable("triagens");
+            e.Property(x => x.CirurgiasPrevias).HasMaxLength(500);
             AplicarListaEnum<Triagem, Sintoma>(e, x => x.Sintomas);
             e.Property(x => x.OutroSintoma).HasMaxLength(300);
             e.Property(x => x.MedicamentosEmUso).HasMaxLength(500);
@@ -215,6 +227,9 @@ public class AtendimentoDbContext : DbContext
             e.Property(x => x.SintomasDescricao).HasMaxLength(2000);
             e.Property(x => x.DiagnosticoObservacao).HasMaxLength(1000);
             e.Property(x => x.Conduta).HasMaxLength(2000);
+            e.Property(x => x.HistoriaClinica).HasMaxLength(2000);
+            e.Property(x => x.ExameFisico).HasMaxLength(2000);
+            e.Property(x => x.OrientacoesGerais).HasMaxLength(2000);
             e.Property(x => x.Cid10Codigo).HasMaxLength(10);
             AplicarListaEnum<Consulta, SintomaSaudeMental>(e, x => x.SintomasSaudeMental);
             AplicarListaEnum<Consulta, PerdaVivenciada>(e, x => x.PerdasVivenciadas);

@@ -121,6 +121,38 @@ public class Paciente
     public string? CartaoSus { get; set; }
 
     /// <summary>
+    /// CPF, em campo proprio.
+    ///
+    /// Nao e um <see cref="TipoDocumento"/>: a pessoa tem CPF *e* RG, e como
+    /// tipo um excluiria o outro — o mesmo problema que o cartao do SUS ja teve.
+    /// O formulario de papel traz os tres em linhas separadas.
+    /// </summary>
+    public string? Cpf { get; set; }
+
+    /// <summary>Raca/cor autodeclarada, pela classificacao do IBGE.</summary>
+    public RacaCor RacaCor { get; set; } = RacaCor.NaoInformado;
+
+    /// <summary>
+    /// Povo indigena a que a pessoa pertence. Texto livre de proposito: nao ha
+    /// lista fechada que caiba, e escolher uma deixaria de fora quem nao esta
+    /// nela.
+    /// </summary>
+    public string? Etnia { get; set; }
+
+    /// <summary>Polo base de saude indigena de referencia.</summary>
+    public string? PoloBase { get; set; }
+
+    /// <summary>Distrito Sanitario Especial Indigena (DSEI).</summary>
+    public string? Dsei { get; set; }
+
+    public string? MunicipioNascimento { get; set; }
+
+    /// <summary>Pais de nascimento. Texto porque a missao atende estrangeiros.</summary>
+    public string? PaisNascimento { get; set; }
+
+    public string? EstadoResidencia { get; set; }
+
+    /// <summary>
     /// Onde a pessoa mora, escolhido de uma lista cadastrada pela coordenacao.
     ///
     /// Lista, e nao texto livre: em campo o mesmo lugar viraria "Vila Uniao",
@@ -199,6 +231,23 @@ public class Atendimento
     public Profissional? FinalizadoPor { get; set; }
     public DateTime? FinalizadoEm { get; set; }
 
+    /// <summary>
+    /// Como terminou. Nulo enquanto esta aberto.
+    ///
+    /// Anulavel tambem para os atendimentos ja finalizados antes deste campo
+    /// existir: nao ha de onde deduzir o desfecho deles, e preencher todos como
+    /// "Alta" inventaria dado — inclusive contando como alta quem morreu.
+    /// </summary>
+    public DesfechoAtendimento? Desfecho { get; set; }
+
+    /// <summary>
+    /// Para onde foi transferido, ou qual foi o outro motivo.
+    ///
+    /// "Transferido" sem dizer para onde nao permite ninguem ir atras do
+    /// paciente depois, que e a unica razao de registrar a transferencia.
+    /// </summary>
+    public string? DesfechoDetalhe { get; set; }
+
     public DateTime AtualizadoEm { get; set; } = DateTime.UtcNow;
 
     public ICollection<Etapa> Etapas { get; set; } = new List<Etapa>();
@@ -260,6 +309,30 @@ public class Triagem
     public int? AlturaCm { get; set; }
 
     /// <summary>
+    /// Perimetro cefalico em centimetros.
+    ///
+    /// Consta do formulario ao lado do peso e da altura, e e medida de
+    /// acompanhamento de crianca — nao ha regra de faixa aqui, so o registro.
+    /// </summary>
+    public double? CircunferenciaCefalicaCm { get; set; }
+
+    /// <summary>Teste rapido de COVID-19. Nulo quando nao foi feito.</summary>
+    public ResultadoTesteRapido? TesteRapidoCovid { get; set; }
+
+    /// <summary>Teste rapido de malaria. Nulo quando nao foi feito.</summary>
+    public ResultadoTesteRapido? TesteRapidoMalaria { get; set; }
+
+    /// <summary>
+    /// Se o paciente ja passou por cirurgia. Nulo significa que nao foi
+    /// perguntado, que e diferente de ter respondido que nao — a mesma distincao
+    /// que a alergia ja fazia.
+    /// </summary>
+    public bool? TeveCirurgiaPrevia { get; set; }
+
+    /// <summary>Quais cirurgias, quando houve.</summary>
+    public string? CirurgiasPrevias { get; set; }
+
+    /// <summary>
     /// Dor de 0 a 10, autorreferida.
     ///
     /// De 0, e nao de 1: "sem dor" e uma resposta valida e diferente de nao ter
@@ -298,6 +371,16 @@ public class Consulta
     public string? SintomasDescricao { get; set; }
 
     /// <summary>
+    /// Historia clinica. Bloco proprio no formulario de papel, e nao um pedaco
+    /// da descricao dos sintomas: sao perguntas diferentes, e juntar as duas
+    /// numa caixa so faz a segunda deixar de ser preenchida.
+    /// </summary>
+    public string? HistoriaClinica { get; set; }
+
+    /// <summary>Exame fisico.</summary>
+    public string? ExameFisico { get; set; }
+
+    /// <summary>
     /// CID-10 estruturado. CORRIGE: no sistema de referencia o diagnostico era
     /// texto livre, entao "J00", "anemia" e "1. Mialgia 2. Artralgia" conviviam
     /// na mesma estatistica de "principais diagnosticos".
@@ -307,6 +390,10 @@ public class Consulta
 
     public string? DiagnosticoObservacao { get; set; }
     public string? Conduta { get; set; }
+
+    /// <summary>Orientacoes gerais dadas ao paciente.</summary>
+    public string? OrientacoesGerais { get; set; }
+
     public DesfechoConsulta? Desfecho { get; set; }
     public Especialidade? EncaminhadoPara { get; set; }
 

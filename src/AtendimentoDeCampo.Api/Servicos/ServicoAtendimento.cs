@@ -164,6 +164,14 @@ public sealed class ServicoAtendimento
             ? null
             : dados.NumeroDocumento.Trim();
         paciente.CartaoSus = Limpar(dados.CartaoSus);
+        paciente.Cpf = Limpar(dados.Cpf);
+        paciente.RacaCor = dados.RacaCor;
+        paciente.Etnia = Limpar(dados.Etnia);
+        paciente.PoloBase = Limpar(dados.PoloBase);
+        paciente.Dsei = Limpar(dados.Dsei);
+        paciente.MunicipioNascimento = Limpar(dados.MunicipioNascimento);
+        paciente.PaisNascimento = Limpar(dados.PaisNascimento);
+        paciente.EstadoResidencia = Limpar(dados.EstadoResidencia);
         paciente.ComunidadeId = dados.ComunidadeId;
         paciente.NomeDaMae = Limpar(dados.NomeDaMae);
         paciente.Endereco = Limpar(dados.Endereco);
@@ -311,6 +319,16 @@ public sealed class ServicoAtendimento
         triagem.GlicemiaCapilar = req.GlicemiaCapilar;
         triagem.PesoKg = req.PesoKg;
         triagem.AlturaCm = req.AlturaCm;
+        triagem.CircunferenciaCefalicaCm = req.CircunferenciaCefalicaCm;
+        triagem.TesteRapidoCovid = req.TesteRapidoCovid;
+        triagem.TesteRapidoMalaria = req.TesteRapidoMalaria;
+        triagem.TeveCirurgiaPrevia = req.TeveCirurgiaPrevia;
+
+        // So guarda a lista quando houve cirurgia: "quais" preenchido junto de
+        // "nao teve" e contradicao gravada, e alguem vai ler so um dos dois.
+        triagem.CirurgiasPrevias = req.TeveCirurgiaPrevia == true
+            ? Limpar(req.CirurgiasPrevias)
+            : null;
         triagem.EscalaDor = req.EscalaDor;
         triagem.Sintomas = req.Sintomas;
         triagem.OutroSintoma = req.OutroSintoma;
@@ -441,6 +459,9 @@ public sealed class ServicoAtendimento
         var antes = novo ? new Dictionary<string, string?>() : SnapshotConsulta(consulta);
 
         consulta.SintomasDescricao = req.SintomasDescricao;
+        consulta.HistoriaClinica = req.HistoriaClinica;
+        consulta.ExameFisico = req.ExameFisico;
+        consulta.OrientacoesGerais = req.OrientacoesGerais;
         consulta.Cid10Codigo = req.Cid10Codigo;
         consulta.DiagnosticoObservacao = req.DiagnosticoObservacao;
         consulta.Conduta = req.Conduta;
@@ -1097,26 +1118,45 @@ public sealed class ServicoAtendimento
     }
 
     /// <summary>
-    /// Da alta: encerra a etapa de quem esta atendendo e o atendimento junto.
+    /// Encerra o atendimento pela fila em que o profissional esta, com o
+    /// desfecho: alta, transferencia para hospital, obito ou outro motivo.
     ///
-    /// Ate agora a alta so fechava a etapa, e o atendimento ficava aberto ate
-    /// alguem lembrar de finalizar no prontuario. Na pratica ninguem lembrava, e
-    /// o paciente aparecia em aberto no dia seguinte — o que estraga tanto a fila
-    /// quanto o tempo medido.
+    /// Ate a alta existir, o desfecho so fechava a etapa e o atendimento ficava
+    /// aberto ate alguem lembrar de finalizar no prontuario. Na pratica ninguem
+    /// lembrava, e o paciente aparecia em aberto no dia seguinte — o que estraga
+    /// tanto a fila quanto o tempo medido.
     ///
-    /// Filas pendentes de outras especialidades nao impedem a alta, mas nao somem
-    /// caladas: sem <paramref name="cancelarPendentes"/> a chamada e recusada com
-    /// a lista, para a tela perguntar antes. Elas sao canceladas, e nao
-    /// concluidas: ninguem atendeu, e concluir inflaria a producao da
+    /// Transferencia e "outro" exigem o detalhe. Transferido sem dizer para onde
+    /// nao permite ninguem ir atras do paciente depois, que e a unica razao de
+    /// registrar a transferencia.
+    ///
+    /// Filas pendentes de outras especialidades nao impedem o encerramento, mas
+    /// nao somem caladas: sem <paramref name="cancelarPendentes"/> a chamada e
+    /// recusada com a lista, para a tela perguntar antes. Elas sao canceladas, e
+    /// nao concluidas: ninguem atendeu, e concluir inflaria a producao da
     /// especialidade com atendimento que nao aconteceu.
     /// </summary>
-    public async Task<ProntuarioDto> DarAltaAsync(
+    public async Task<ProntuarioDto> EncerrarAsync(
         Guid atendimentoId,
         Especialidade especialidade,
+        DesfechoAtendimento desfecho,
+        string? detalhe,
         bool cancelarPendentes,
         Guid profissionalId,
         CancellationToken ct = default)
     {
+        detalhe = Limpar(detalhe);
+
+        if (desfecho == DesfechoAtendimento.TransferenciaHospitalar && detalhe is null)
+        {
+            throw new RegraDeNegocioException("Informe para onde o paciente foi transferido.");
+        }
+
+        if (desfecho == DesfechoAtendimento.Outro && detalhe is null)
+        {
+            throw new RegraDeNegocioException("Descreva o motivo do encerramento.");
+        }
+
         var atendimento = await CarregarAsync(atendimentoId, ct);
 
         if (atendimento.FinalizadoEm is not null)
@@ -1137,7 +1177,7 @@ public sealed class ServicoAtendimento
             throw new RegraDeNegocioException(
                 "Ha filas pendentes: " +
                 string.Join(", ", pendentes.Select(e => e.Especialidade.ToString())) +
-                ". Confirme para dar alta cancelando estas filas.");
+                ". Confirme para encerrar cancelando estas filas.");
         }
 
         if (minha.Status is StatusEtapa.Aguardando or StatusEtapa.EmAndamento)
@@ -1163,6 +1203,8 @@ public sealed class ServicoAtendimento
         atendimento.FinalizadoPorId = profissionalId;
         atendimento.FinalizadoEm = DateTime.UtcNow;
         atendimento.AtualizadoEm = DateTime.UtcNow;
+        atendimento.Desfecho = desfecho;
+        atendimento.DesfechoDetalhe = detalhe;
 
         foreach (var aberta in atendimento.PassagensFila.Where(p => p.SaiuEm is null))
         {
@@ -1170,12 +1212,40 @@ public sealed class ServicoAtendimento
         }
 
         await _auditoria.RegistrarAsync(
-            atendimentoId, profissionalId, AcaoAuditoria.DeuAlta, especialidade, ct);
+            atendimentoId, profissionalId, AcaoDoDesfecho(desfecho), especialidade, ct);
+
+        // O detalhe entra no historico como diff, e nao so na coluna: para onde
+        // o paciente foi transferido e a informacao que alguem vai procurar
+        // depois, e o historico e onde se procura.
+        if (detalhe is not null)
+        {
+            _auditoria.RegistrarDiffs(
+                atendimentoId,
+                profissionalId,
+                new[] { new DiffCampo("atendimento.desfechoDetalhe", null, detalhe) },
+                especialidade,
+                aposFinalizacao: false);
+        }
 
         await _db.SaveChangesAsync(ct);
 
         return await ObterProntuarioAsync(atendimentoId, ct);
     }
+
+    /// <summary>
+    /// A acao de auditoria de cada desfecho.
+    ///
+    /// Uma acao por desfecho, e nao uma so com o valor no diff: daqui a um ano a
+    /// pergunta vai ser quem registrou o obito, e a resposta nao pode depender
+    /// de ler o diff de um campo.
+    /// </summary>
+    private static AcaoAuditoria AcaoDoDesfecho(DesfechoAtendimento desfecho) => desfecho switch
+    {
+        DesfechoAtendimento.Obito => AcaoAuditoria.RegistrouObito,
+        DesfechoAtendimento.TransferenciaHospitalar => AcaoAuditoria.TransferiuParaHospital,
+        DesfechoAtendimento.Outro => AcaoAuditoria.EncerrouPorOutroMotivo,
+        _ => AcaoAuditoria.DeuAlta
+    };
 
     private async Task<Atendimento> CarregarComEtapasAsync(Guid id, CancellationToken ct)
         => await _db.Atendimentos
@@ -1509,6 +1579,10 @@ public sealed class ServicoAtendimento
         ["triagem.glicemia"] = t.GlicemiaCapilar?.ToString(),
         ["triagem.peso"] = t.PesoKg?.ToString(CultureInfo.InvariantCulture),
         ["triagem.altura"] = t.AlturaCm?.ToString(),
+        ["triagem.circunferenciaCefalica"] = t.CircunferenciaCefalicaCm?.ToString(CultureInfo.InvariantCulture),
+        ["triagem.testeRapidoCovid"] = t.TesteRapidoCovid?.ToString(),
+        ["triagem.testeRapidoMalaria"] = t.TesteRapidoMalaria?.ToString(),
+        ["triagem.cirurgiasPrevias"] = t.CirurgiasPrevias,
         ["triagem.escalaDor"] = t.EscalaDor?.ToString(),
         ["triagem.sintomas"] = t.Sintomas.Count == 0 ? null : string.Join(",", t.Sintomas),
         ["triagem.outroSintoma"] = t.OutroSintoma,
@@ -1526,6 +1600,9 @@ public sealed class ServicoAtendimento
         ["consulta.cid10"] = c.Cid10Codigo,
         ["consulta.diagnosticoObservacao"] = c.DiagnosticoObservacao,
         ["consulta.conduta"] = c.Conduta,
+        ["consulta.historiaClinica"] = c.HistoriaClinica,
+        ["consulta.exameFisico"] = c.ExameFisico,
+        ["consulta.orientacoesGerais"] = c.OrientacoesGerais,
         ["consulta.desfecho"] = c.Desfecho?.ToString(),
         ["consulta.encaminhadoPara"] = c.EncaminhadoPara?.ToString(),
         ["consulta.sintomasSaudeMental"] = c.SintomasSaudeMental.Count == 0 ? null : string.Join(",", c.SintomasSaudeMental),

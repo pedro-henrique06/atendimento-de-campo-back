@@ -85,9 +85,18 @@ public class AltaEDevolucaoTests
 
     private static Task<HttpResponseMessage> DarAltaAsync(
         HttpClient client, Guid id, Especialidade fila, bool cancelarPendentes = false)
+        => EncerrarAsync(client, id, fila, DesfechoAtendimento.Alta, null, cancelarPendentes);
+
+    private static Task<HttpResponseMessage> EncerrarAsync(
+        HttpClient client,
+        Guid id,
+        Especialidade fila,
+        DesfechoAtendimento desfecho,
+        string? detalhe = null,
+        bool cancelarPendentes = false)
         => client.PostAsJsonAsync(
-            $"/api/atendimentos/{id}/etapas/{fila}/alta",
-            new { cancelarPendentes },
+            $"/api/atendimentos/{id}/etapas/{fila}/encerrar",
+            new { desfecho = desfecho.ToString(), detalhe, cancelarPendentes },
             Json);
 
     // -----------------------------------------------------------------------
