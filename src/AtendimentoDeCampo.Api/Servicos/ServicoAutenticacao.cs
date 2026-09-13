@@ -169,6 +169,13 @@ public sealed class ServicoAutenticacao
         FuncaoProfissional.ClinicoGeral => ConselhoTipo.Crm,
         FuncaoProfissional.Pediatra => ConselhoTipo.Crm,
         FuncaoProfissional.Ortopedista => ConselhoTipo.Crm,
+        FuncaoProfissional.Ginecologista => ConselhoTipo.Crm,
+        FuncaoProfissional.Cirurgiao => ConselhoTipo.Crm,
+        FuncaoProfissional.Anestesista => ConselhoTipo.Crm,
+        FuncaoProfissional.Cardiologista => ConselhoTipo.Crm,
+
+        // O laudo de USG do formulario de papel e assinado por "Medico ___ CRM".
+        FuncaoProfissional.Ultrassonografista => ConselhoTipo.Crm,
         FuncaoProfissional.Enfermeiro => ConselhoTipo.Coren,
         FuncaoProfissional.TecnicoEnfermagem => ConselhoTipo.Coren,
         FuncaoProfissional.Dentista => ConselhoTipo.Cro,

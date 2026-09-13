@@ -21,6 +21,10 @@ public class FilasDaFuncaoTests
         Assert.Equal(Especialidade.Odontologia, FilasDaFuncao.Padrao(FuncaoProfissional.Dentista));
         Assert.Equal(Especialidade.SaudeMental, FilasDaFuncao.Padrao(FuncaoProfissional.Psicologo));
         Assert.Equal(Especialidade.Triagem, FilasDaFuncao.Padrao(FuncaoProfissional.Recepcao));
+        Assert.Equal(Especialidade.Ginecologia, FilasDaFuncao.Padrao(FuncaoProfissional.Ginecologista));
+        Assert.Equal(Especialidade.Cirurgia, FilasDaFuncao.Padrao(FuncaoProfissional.Cirurgiao));
+        Assert.Equal(Especialidade.Cardiologia, FilasDaFuncao.Padrao(FuncaoProfissional.Cardiologista));
+        Assert.Equal(Especialidade.Ultrassom, FilasDaFuncao.Padrao(FuncaoProfissional.Ultrassonografista));
     }
 
     [Fact]

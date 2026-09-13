@@ -43,7 +43,18 @@ public enum FuncaoProfissional
 
     ClinicoGeral = 10,
     Pediatra = 11,
-    Ortopedista = 12
+    Ortopedista = 12,
+
+    Ginecologista = 13,
+    Cirurgiao = 14,
+    Anestesista = 15,
+    Cardiologista = 16,
+
+    /// <summary>
+    /// Quem opera o aparelho e assina o laudo. No formulario de papel o laudo de
+    /// USG e assinado por "Medico ___ CRM ___", entao o conselho e o CRM.
+    /// </summary>
+    Ultrassonografista = 17
 }
 
 public enum ConselhoTipo
@@ -66,7 +77,27 @@ public enum Especialidade
     Ortopedia = 3,
     Odontologia = 4,
     Enfermagem = 5,
-    SaudeMental = 6
+    SaudeMental = 6,
+
+    Ginecologia = 7,
+    Cirurgia = 8,
+    Anestesia = 9,
+
+    /// <summary>Teleconsulta de cardiologia, como no formulario de missao programada.</summary>
+    Cardiologia = 10,
+
+    /// <summary>
+    /// Exame de imagem. Fila derivada: ninguem chega aqui sem alguem ter
+    /// mandado, e o caminho de volta ao solicitante e a devolucao que ja existe.
+    /// </summary>
+    Ultrassom = 11,
+
+    /// <summary>
+    /// Dispensacao e checagem do que foi prescrito. Ate aqui o farmaceutico caia
+    /// na fila da enfermagem por nao haver fila propria — um contorno, nao um
+    /// desenho.
+    /// </summary>
+    Farmacia = 12
 }
 
 /// <summary>

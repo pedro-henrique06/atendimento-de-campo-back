@@ -27,7 +27,13 @@ public static class FilasDaFuncao
         Especialidade.Ortopedia,
         Especialidade.Odontologia,
         Especialidade.Enfermagem,
-        Especialidade.SaudeMental
+        Especialidade.SaudeMental,
+        Especialidade.Ginecologia,
+        Especialidade.Cirurgia,
+        Especialidade.Anestesia,
+        Especialidade.Cardiologia,
+        Especialidade.Ultrassom,
+        Especialidade.Farmacia
     ];
 
     public static IReadOnlyList<Especialidade> De(FuncaoProfissional funcao) => funcao switch
@@ -37,6 +43,19 @@ public static class FilasDaFuncao
         FuncaoProfissional.ClinicoGeral => [Especialidade.ClinicaGeral],
         FuncaoProfissional.Pediatra => [Especialidade.Pediatria],
         FuncaoProfissional.Ortopedista => [Especialidade.Ortopedia],
+        FuncaoProfissional.Ginecologista => [Especialidade.Ginecologia],
+        FuncaoProfissional.Cirurgiao => [Especialidade.Cirurgia],
+        FuncaoProfissional.Cardiologista => [Especialidade.Cardiologia],
+
+        // O anestesista avalia antes da cirurgia e acompanha durante: as duas
+        // filas sao o trabalho dele, nao uma excecao.
+        FuncaoProfissional.Anestesista =>
+        [
+            Especialidade.Anestesia,
+            Especialidade.Cirurgia
+        ],
+
+        FuncaoProfissional.Ultrassonografista => [Especialidade.Ultrassom],
 
         // Conta antiga, criada antes das especialidades existirem. Ve as tres
         // ate a coordenacao reclassificar.
@@ -61,8 +80,10 @@ public static class FilasDaFuncao
 
         FuncaoProfissional.Fisioterapeuta => [Especialidade.Ortopedia],
 
-        // O farmaceutico atua na dispensacao, que acontece dentro da enfermagem.
-        FuncaoProfissional.Farmaceutico => [Especialidade.Enfermagem],
+        // Fila propria. Antes caia na enfermagem por nao existir a da farmacia,
+        // o que misturava a producao das duas e punha o farmaceutico numa fila
+        // de atendimento que nao e a dele.
+        FuncaoProfissional.Farmaceutico => [Especialidade.Farmacia],
 
         // A recepcao cadastra e acompanha quem esta esperando para ser triado.
         FuncaoProfissional.Recepcao => [Especialidade.Triagem],
@@ -92,6 +113,11 @@ public static class FilasDaFuncao
         FuncaoProfissional.ClinicoGeral,
         FuncaoProfissional.Pediatra,
         FuncaoProfissional.Ortopedista,
+        FuncaoProfissional.Ginecologista,
+        FuncaoProfissional.Cirurgiao,
+        FuncaoProfissional.Anestesista,
+        FuncaoProfissional.Cardiologista,
+        FuncaoProfissional.Ultrassonografista,
         FuncaoProfissional.Dentista,
         FuncaoProfissional.Enfermeiro,
         FuncaoProfissional.TecnicoEnfermagem,
