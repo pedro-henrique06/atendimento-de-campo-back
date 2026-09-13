@@ -425,7 +425,8 @@ public sealed class ServicoAtendimento
         Guid profissionalId,
         CancellationToken ct = default)
     {
-        if (req.Especialidade is Especialidade.Triagem or Especialidade.Odontologia or Especialidade.Enfermagem)
+        if (req.Especialidade is Especialidade.Triagem or Especialidade.Odontologia
+            or Especialidade.Enfermagem or Especialidade.Ultrassom or Especialidade.Farmacia)
         {
             throw new RegraDeNegocioException(
                 $"{req.Especialidade} tem endpoint proprio e nao e registrada como consulta.");
@@ -436,6 +437,7 @@ public sealed class ServicoAtendimento
 
         var consulta = await _db.Consultas
             .Include(c => c.Ortopedia)
+            .Include(c => c.Ginecologia)
             .FirstOrDefaultAsync(c => c.EtapaId == etapa.Id, ct);
 
         var novo = consulta is null;
@@ -482,6 +484,27 @@ public sealed class ServicoAtendimento
             {
                 _db.ConsultasOrtopedia.Add(consulta.Ortopedia);
             }
+        }
+
+        if (req.Especialidade == Especialidade.Ginecologia && req.Ginecologia is not null)
+        {
+            var g = consulta.Ginecologia;
+
+            if (g is null)
+            {
+                g = new ConsultaGinecologia { ConsultaId = consulta.Id };
+                consulta.Ginecologia = g;
+                _db.ConsultasGinecologia.Add(g);
+            }
+
+            g.DataUltimaMenstruacao = req.Ginecologia.DataUltimaMenstruacao;
+            g.Gestacoes = req.Ginecologia.Gestacoes;
+            g.Partos = req.Ginecologia.Partos;
+            g.Abortos = req.Ginecologia.Abortos;
+            g.Gestante = req.Ginecologia.Gestante;
+            g.SemanasGestacao = req.Ginecologia.SemanasGestacao;
+            g.MetodoContraceptivo = req.Ginecologia.MetodoContraceptivo;
+            g.UltimoPreventivo = req.Ginecologia.UltimoPreventivo;
         }
 
         await SubstituirDispensacoesAsync(etapa.Id, req.Dispensacoes, ct);
@@ -647,6 +670,118 @@ public sealed class ServicoAtendimento
 
         await _auditoria.RegistrarAsync(
             atendimentoId, profissionalId, AcaoAuditoria.ConcluiuEtapa, Especialidade.Enfermagem, ct);
+
+        atendimento.AtualizadoEm = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // -----------------------------------------------------------------------
+    // Ultrassom
+    // -----------------------------------------------------------------------
+
+    public async Task RegistrarUltrassomAsync(
+        Guid atendimentoId,
+        RegistrarUltrassomRequest req,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarAsync(atendimentoId, ct);
+        var etapa = await ObterOuCriarEtapaAsync(atendimento, Especialidade.Ultrassom, profissionalId, ct);
+
+        var usg = await _db.Ultrassons.FirstOrDefaultAsync(u => u.EtapaId == etapa.Id, ct);
+        var novo = usg is null;
+
+        if (usg is null)
+        {
+            usg = new Ultrassom { EtapaId = etapa.Id };
+            _db.Ultrassons.Add(usg);
+        }
+
+        if (req.Desfecho == DesfechoConsulta.Encaminhado && req.EncaminhadoPara is Especialidade paraOnde)
+        {
+            RecusarVoltaParaTriagem(atendimento, paraOnde);
+        }
+
+        var antes = novo ? new Dictionary<string, string?>() : SnapshotUltrassom(usg);
+
+        usg.ExameSolicitado = req.ExameSolicitado;
+        usg.Indicacao = req.Indicacao;
+        usg.Analise = req.Analise;
+        usg.Conclusao = req.Conclusao;
+        usg.Desfecho = req.Desfecho;
+
+        _auditoria.RegistrarDiffs(
+            atendimentoId, profissionalId,
+            RegistradorAuditoria.Comparar(antes, SnapshotUltrassom(usg)),
+            Especialidade.Ultrassom,
+            aposFinalizacao: atendimento.FinalizadoEm is not null);
+
+        ConcluirEtapa(etapa, profissionalId);
+        FecharPassagem(atendimento, Especialidade.Ultrassom, profissionalId);
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.ConcluiuEtapa, Especialidade.Ultrassom, ct);
+
+        if (req.Desfecho == DesfechoConsulta.Encaminhado && req.EncaminhadoPara is Especialidade destino)
+        {
+            await AbrirFilaAsync(atendimento, destino, ct, profissionalId, Especialidade.Ultrassom);
+        }
+
+        atendimento.AtualizadoEm = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // -----------------------------------------------------------------------
+    // Farmacia
+    // -----------------------------------------------------------------------
+
+    public async Task RegistrarFarmaciaAsync(
+        Guid atendimentoId,
+        RegistrarFarmaciaRequest req,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarAsync(atendimentoId, ct);
+        var etapa = await ObterOuCriarEtapaAsync(atendimento, Especialidade.Farmacia, profissionalId, ct);
+
+        var farmacia = await _db.Farmacias.FirstOrDefaultAsync(f => f.EtapaId == etapa.Id, ct);
+        var novo = farmacia is null;
+
+        if (farmacia is null)
+        {
+            farmacia = new Farmacia { EtapaId = etapa.Id };
+            _db.Farmacias.Add(farmacia);
+        }
+
+        if (req.Desfecho == DesfechoConsulta.Encaminhado && req.EncaminhadoPara is Especialidade paraOnde)
+        {
+            RecusarVoltaParaTriagem(atendimento, paraOnde);
+        }
+
+        var antes = novo ? new Dictionary<string, string?>() : SnapshotFarmacia(farmacia);
+
+        farmacia.Orientacoes = req.Orientacoes;
+        farmacia.Observacoes = req.Observacoes;
+        farmacia.Desfecho = req.Desfecho;
+
+        await SubstituirDispensacoesAsync(etapa.Id, req.Dispensacoes, ct);
+
+        _auditoria.RegistrarDiffs(
+            atendimentoId, profissionalId,
+            RegistradorAuditoria.Comparar(antes, SnapshotFarmacia(farmacia)),
+            Especialidade.Farmacia,
+            aposFinalizacao: atendimento.FinalizadoEm is not null);
+
+        ConcluirEtapa(etapa, profissionalId);
+        FecharPassagem(atendimento, Especialidade.Farmacia, profissionalId);
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.ConcluiuEtapa, Especialidade.Farmacia, ct);
+
+        if (req.Desfecho == DesfechoConsulta.Encaminhado && req.EncaminhadoPara is Especialidade destino)
+        {
+            await AbrirFilaAsync(atendimento, destino, ct, profissionalId, Especialidade.Farmacia);
+        }
 
         atendimento.AtualizadoEm = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
@@ -1283,10 +1418,13 @@ public sealed class ServicoAtendimento
             .Include(a => a.Etapas).ThenInclude(e => e.Profissional)
             .Include(a => a.Etapas).ThenInclude(e => e.Triagem)
             .Include(a => a.Etapas).ThenInclude(e => e.Consulta).ThenInclude(c => c!.Ortopedia)
+            .Include(a => a.Etapas).ThenInclude(e => e.Consulta).ThenInclude(c => c!.Ginecologia)
             .Include(a => a.Etapas).ThenInclude(e => e.Consulta).ThenInclude(c => c!.Cid10)
             .Include(a => a.Etapas).ThenInclude(e => e.Odontologia).ThenInclude(o => o!.Marcacoes)
             .Include(a => a.Etapas).ThenInclude(e => e.Odontologia).ThenInclude(o => o!.Cid10)
             .Include(a => a.Etapas).ThenInclude(e => e.Enfermagem)
+            .Include(a => a.Etapas).ThenInclude(e => e.Ultrassom)
+            .Include(a => a.Etapas).ThenInclude(e => e.Farmacia)
             .Include(a => a.Etapas).ThenInclude(e => e.Dispensacoes).ThenInclude(d => d.Item)
             .FirstOrDefaultAsync(a => a.Id == id, ct)
             ?? throw new RegraDeNegocioException("Atendimento nao encontrado.");
@@ -1610,7 +1748,31 @@ public sealed class ServicoAtendimento
         ["ortopedia.localizacao"] = c.Ortopedia?.Localizacao,
         ["ortopedia.mecanismoTrauma"] = c.Ortopedia?.MecanismoTrauma,
         ["ortopedia.imobilizacao"] = c.Ortopedia is null ? null : Booleano(c.Ortopedia.Imobilizacao),
-        ["ortopedia.necessitaRaioX"] = c.Ortopedia is null ? null : Booleano(c.Ortopedia.NecessitaRaioX)
+        ["ortopedia.necessitaRaioX"] = c.Ortopedia is null ? null : Booleano(c.Ortopedia.NecessitaRaioX),
+        ["ginecologia.dum"] = c.Ginecologia?.DataUltimaMenstruacao?.ToString("yyyy-MM-dd"),
+        ["ginecologia.gestacoes"] = c.Ginecologia?.Gestacoes?.ToString(),
+        ["ginecologia.partos"] = c.Ginecologia?.Partos?.ToString(),
+        ["ginecologia.abortos"] = c.Ginecologia?.Abortos?.ToString(),
+        ["ginecologia.gestante"] = c.Ginecologia?.Gestante is bool g ? Booleano(g) : null,
+        ["ginecologia.semanasGestacao"] = c.Ginecologia?.SemanasGestacao?.ToString(),
+        ["ginecologia.metodoContraceptivo"] = c.Ginecologia?.MetodoContraceptivo,
+        ["ginecologia.ultimoPreventivo"] = c.Ginecologia?.UltimoPreventivo
+    };
+
+    private static Dictionary<string, string?> SnapshotUltrassom(Ultrassom u) => new()
+    {
+        ["ultrassom.exameSolicitado"] = u.ExameSolicitado,
+        ["ultrassom.indicacao"] = u.Indicacao,
+        ["ultrassom.analise"] = u.Analise,
+        ["ultrassom.conclusao"] = u.Conclusao,
+        ["ultrassom.desfecho"] = u.Desfecho?.ToString()
+    };
+
+    private static Dictionary<string, string?> SnapshotFarmacia(Farmacia f) => new()
+    {
+        ["farmacia.orientacoes"] = f.Orientacoes,
+        ["farmacia.observacoes"] = f.Observacoes,
+        ["farmacia.desfecho"] = f.Desfecho?.ToString()
     };
 
     private static Dictionary<string, string?> SnapshotOdontologia(Odontologia o) => new()

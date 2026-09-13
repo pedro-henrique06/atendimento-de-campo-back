@@ -18,9 +18,12 @@ public class AtendimentoDbContext : DbContext
     public DbSet<Triagem> Triagens => Set<Triagem>();
     public DbSet<Consulta> Consultas => Set<Consulta>();
     public DbSet<ConsultaOrtopedia> ConsultasOrtopedia => Set<ConsultaOrtopedia>();
+    public DbSet<ConsultaGinecologia> ConsultasGinecologia => Set<ConsultaGinecologia>();
     public DbSet<Odontologia> Odontologias => Set<Odontologia>();
     public DbSet<MarcacaoDente> MarcacoesDente => Set<MarcacaoDente>();
     public DbSet<Enfermagem> Enfermagens => Set<Enfermagem>();
+    public DbSet<Ultrassom> Ultrassons => Set<Ultrassom>();
+    public DbSet<Farmacia> Farmacias => Set<Farmacia>();
     public DbSet<ItemCatalogo> ItensCatalogo => Set<ItemCatalogo>();
     public DbSet<EstoqueBase> EstoqueBases => Set<EstoqueBase>();
     public DbSet<Dispensacao> Dispensacoes => Set<Dispensacao>();
@@ -259,6 +262,18 @@ public class AtendimentoDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        b.Entity<ConsultaGinecologia>(e =>
+        {
+            e.ToTable("consultas_ginecologia");
+            e.Property(x => x.MetodoContraceptivo).HasMaxLength(200);
+            e.Property(x => x.UltimoPreventivo).HasMaxLength(200);
+
+            e.HasOne(x => x.Consulta)
+                .WithOne(x => x.Ginecologia)
+                .HasForeignKey<ConsultaGinecologia>(x => x.ConsultaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         b.Entity<Odontologia>(e =>
         {
             e.ToTable("odontologia");
@@ -305,6 +320,32 @@ public class AtendimentoDbContext : DbContext
             e.HasOne(x => x.Etapa)
                 .WithOne(x => x.Enfermagem)
                 .HasForeignKey<Enfermagem>(x => x.EtapaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Ultrassom>(e =>
+        {
+            e.ToTable("ultrassom");
+            e.Property(x => x.ExameSolicitado).HasMaxLength(300);
+            e.Property(x => x.Indicacao).HasMaxLength(1000);
+            e.Property(x => x.Analise).HasMaxLength(4000);
+            e.Property(x => x.Conclusao).HasMaxLength(2000);
+
+            e.HasOne(x => x.Etapa)
+                .WithOne(x => x.Ultrassom)
+                .HasForeignKey<Ultrassom>(x => x.EtapaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Farmacia>(e =>
+        {
+            e.ToTable("farmacia");
+            e.Property(x => x.Orientacoes).HasMaxLength(2000);
+            e.Property(x => x.Observacoes).HasMaxLength(2000);
+
+            e.HasOne(x => x.Etapa)
+                .WithOne(x => x.Farmacia)
+                .HasForeignKey<Farmacia>(x => x.EtapaId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

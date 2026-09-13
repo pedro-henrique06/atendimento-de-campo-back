@@ -100,6 +100,8 @@ public static class Mapeadores
         var triagemEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Triagem);
         var odontoEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Odontologia);
         var enfEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Enfermagem);
+        var usgEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Ultrassom);
+        var farmaciaEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Farmacia);
 
         var consultas = etapas
             .Where(e => e.Consulta is not null)
@@ -149,6 +151,8 @@ public static class Mapeadores
             consultas,
             odontoEtapa?.Odontologia is null ? null : ParaOdontologiaDto(odontoEtapa),
             enfEtapa?.Enfermagem is null ? null : ParaEnfermagemDto(enfEtapa),
+            usgEtapa?.Ultrassom is null ? null : ParaUltrassomDto(usgEtapa),
+            farmaciaEtapa?.Farmacia is null ? null : ParaFarmaciaDto(farmaciaEtapa),
             tempos,
             historico,
             etapas.Select(e => ParaEtapaResumo(e, a)).ToList());
@@ -225,6 +229,20 @@ public static class Mapeadores
                 NecessitaRaioX = c.Ortopedia.NecessitaRaioX
             };
 
+        GinecologiaRequest? ginecologia = c.Ginecologia is null
+            ? null
+            : new GinecologiaRequest
+            {
+                DataUltimaMenstruacao = c.Ginecologia.DataUltimaMenstruacao,
+                Gestacoes = c.Ginecologia.Gestacoes,
+                Partos = c.Ginecologia.Partos,
+                Abortos = c.Ginecologia.Abortos,
+                Gestante = c.Ginecologia.Gestante,
+                SemanasGestacao = c.Ginecologia.SemanasGestacao,
+                MetodoContraceptivo = c.Ginecologia.MetodoContraceptivo,
+                UltimoPreventivo = c.Ginecologia.UltimoPreventivo
+            };
+
         return new ConsultaDto(
             etapa.Id,
             etapa.Especialidade,
@@ -240,6 +258,36 @@ public static class Mapeadores
             c.Desfecho,
             c.EncaminhadoPara,
             ortopedia,
+            ginecologia,
+            etapa.Dispensacoes.Select(ParaDispensacaoDto).ToList(),
+            etapa.ConcluidaEm);
+    }
+
+    private static UltrassomDto ParaUltrassomDto(Etapa etapa)
+    {
+        var u = etapa.Ultrassom!;
+
+        return new UltrassomDto(
+            etapa.Id,
+            ParaAutor(etapa.Profissional),
+            u.ExameSolicitado,
+            u.Indicacao,
+            u.Analise,
+            u.Conclusao,
+            u.Desfecho,
+            etapa.ConcluidaEm);
+    }
+
+    private static FarmaciaDto ParaFarmaciaDto(Etapa etapa)
+    {
+        var f = etapa.Farmacia!;
+
+        return new FarmaciaDto(
+            etapa.Id,
+            ParaAutor(etapa.Profissional),
+            f.Orientacoes,
+            f.Observacoes,
+            f.Desfecho,
             etapa.Dispensacoes.Select(ParaDispensacaoDto).ToList(),
             etapa.ConcluidaEm);
     }

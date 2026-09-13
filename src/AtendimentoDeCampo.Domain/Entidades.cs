@@ -279,6 +279,8 @@ public class Etapa
     public Consulta? Consulta { get; set; }
     public Odontologia? Odontologia { get; set; }
     public Enfermagem? Enfermagem { get; set; }
+    public Ultrassom? Ultrassom { get; set; }
+    public Farmacia? Farmacia { get; set; }
     public ICollection<Dispensacao> Dispensacoes { get; set; } = new List<Dispensacao>();
 }
 
@@ -401,6 +403,49 @@ public class Consulta
     public List<PerdaVivenciada> PerdasVivenciadas { get; set; } = new();
 
     public ConsultaOrtopedia? Ortopedia { get; set; }
+    public ConsultaGinecologia? Ginecologia { get; set; }
+}
+
+/// <summary>
+/// Bloco extra preenchido quando a consulta e de ginecologia.
+///
+/// Fica na consulta, e nao numa ficha propria: o resto da ginecologia — queixa,
+/// exame fisico, CID-10, conduta — e o mesmo de qualquer consulta, e duplicar
+/// tudo isso so para acrescentar a historia menstrual criaria duas fichas que
+/// precisariam ser mantidas juntas.
+/// </summary>
+public class ConsultaGinecologia
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ConsultaId { get; set; }
+    public Consulta? Consulta { get; set; }
+
+    /// <summary>Data da ultima menstruacao (DUM).</summary>
+    public DateOnly? DataUltimaMenstruacao { get; set; }
+
+    /// <summary>
+    /// Gestacoes, partos e abortos — o "G/P/A" do formulario.
+    ///
+    /// Tres campos, e nao um texto "2/1/1": em texto, "G2 P1 A1", "2-1-1" e
+    /// "II/I/I" contam a mesma coisa de tres jeitos, e nenhum deles soma.
+    /// </summary>
+    public int? Gestacoes { get; set; }
+    public int? Partos { get; set; }
+    public int? Abortos { get; set; }
+
+    /// <summary>
+    /// Se esta gravida. Nulo significa que nao foi perguntado, que e diferente
+    /// de ter respondido que nao — a mesma distincao que a alergia ja faz.
+    /// </summary>
+    public bool? Gestante { get; set; }
+
+    /// <summary>Idade gestacional em semanas, quando gestante.</summary>
+    public int? SemanasGestacao { get; set; }
+
+    public string? MetodoContraceptivo { get; set; }
+
+    /// <summary>Quando foi o ultimo preventivo, como a paciente lembrar.</summary>
+    public string? UltimoPreventivo { get; set; }
 }
 
 /// <summary>Bloco extra preenchido quando a consulta e de ortopedia.</summary>
@@ -459,6 +504,67 @@ public class Enfermagem
     public List<ProcedimentoEnfermagem> Procedimentos { get; set; } = new();
     public string? OutroProcedimento { get; set; }
     public string? Observacoes { get; set; }
+    public DesfechoConsulta? Desfecho { get; set; }
+}
+
+/// <summary>
+/// O laudo do exame de imagem.
+///
+/// Nao e uma consulta: nao ha CID-10 nem conduta aqui. Quem faz o exame
+/// descreve o que viu e conclui; quem decide o que fazer com isso e quem pediu,
+/// e o caminho de volta ate ele e a devolucao que ja existe.
+/// </summary>
+public class Ultrassom
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid EtapaId { get; set; }
+    public Etapa? Etapa { get; set; }
+
+    /// <summary>Qual exame foi pedido, ex.: "USG abdome total".</summary>
+    public string? ExameSolicitado { get; set; }
+
+    /// <summary>Por que foi pedido — o que o laudo precisa responder.</summary>
+    public string? Indicacao { get; set; }
+
+    /// <summary>A descricao do que se viu.</summary>
+    public string? Analise { get; set; }
+
+    /// <summary>
+    /// A conclusao do laudo.
+    ///
+    /// Separada da analise porque e ela que quem pediu le primeiro, e no papel
+    /// as duas sao linhas distintas. Juntas numa caixa so, a conclusao vira o
+    /// ultimo paragrafo de um texto corrido e deixa de ser achavel.
+    /// </summary>
+    public string? Conclusao { get; set; }
+
+    public DesfechoConsulta? Desfecho { get; set; }
+}
+
+/// <summary>
+/// A passagem pela farmacia: o que foi entregue, por quem e quando.
+///
+/// As linhas do que saiu sao <see cref="Dispensacao"/> presas a esta etapa, como
+/// nas outras fichas. O "por quem" e o "quando" nao sao campos: sao o
+/// profissional e a conclusao da propria etapa, que ja existem e nao podem
+/// divergir do resto do atendimento — que e o que aconteceria se a farmacia
+/// tivesse a sua propria copia deles.
+/// </summary>
+public class Farmacia
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid EtapaId { get; set; }
+    public Etapa? Etapa { get; set; }
+
+    /// <summary>Orientacao farmaceutica dada a quem recebeu.</summary>
+    public string? Orientacoes { get; set; }
+
+    /// <summary>
+    /// O que fugiu do previsto: item em falta, dose trocada por outra
+    /// apresentacao, receita ilegivel.
+    /// </summary>
+    public string? Observacoes { get; set; }
+
     public DesfechoConsulta? Desfecho { get; set; }
 }
 

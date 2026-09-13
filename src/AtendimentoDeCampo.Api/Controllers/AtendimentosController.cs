@@ -188,6 +188,26 @@ public class AtendimentosController : ControllerBase
         return NoContent();
     }
 
+    [HttpPut("{id:guid}/ultrassom")]
+    public async Task<IActionResult> RegistrarUltrassom(
+        Guid id,
+        [FromBody] RegistrarUltrassomRequest req,
+        CancellationToken ct)
+    {
+        await _servico.RegistrarUltrassomAsync(id, req, ProfissionalId, ct);
+        return NoContent();
+    }
+
+    [HttpPut("{id:guid}/farmacia")]
+    public async Task<IActionResult> RegistrarFarmacia(
+        Guid id,
+        [FromBody] RegistrarFarmaciaRequest req,
+        CancellationToken ct)
+    {
+        await _servico.RegistrarFarmaciaAsync(id, req, ProfissionalId, ct);
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/finalizar")]
     public async Task<IActionResult> Finalizar(
         Guid id,

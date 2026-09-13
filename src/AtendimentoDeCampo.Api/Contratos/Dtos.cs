@@ -456,6 +456,8 @@ public sealed record ProntuarioDto(
     List<ConsultaDto> Consultas,
     OdontologiaDto? Odontologia,
     EnfermagemDto? Enfermagem,
+    UltrassomDto? Ultrassom,
+    FarmaciaDto? Farmacia,
     List<EsperaFilaDto> TempoNasFilas,
     List<AuditoriaDto> Historico,
     /// <summary>
@@ -619,6 +621,22 @@ public sealed record OrtopediaRequest
     public bool NecessitaRaioX { get; init; }
 }
 
+public sealed record GinecologiaRequest
+{
+    public DateOnly? DataUltimaMenstruacao { get; init; }
+
+    [Range(0, 30)] public int? Gestacoes { get; init; }
+    [Range(0, 30)] public int? Partos { get; init; }
+    [Range(0, 30)] public int? Abortos { get; init; }
+
+    public bool? Gestante { get; init; }
+
+    [Range(1, 45)] public int? SemanasGestacao { get; init; }
+
+    [MaxLength(200)] public string? MetodoContraceptivo { get; init; }
+    [MaxLength(200)] public string? UltimoPreventivo { get; init; }
+}
+
 public sealed record RegistrarConsultaRequest
 {
     [Required]
@@ -657,6 +675,7 @@ public sealed record RegistrarConsultaRequest
     public List<PerdaVivenciada> PerdasVivenciadas { get; init; } = new();
 
     public OrtopediaRequest? Ortopedia { get; init; }
+    public GinecologiaRequest? Ginecologia { get; init; }
     public List<DispensacaoRequest> Dispensacoes { get; init; } = new();
 }
 
@@ -684,6 +703,7 @@ public sealed record ConsultaDto(
     DesfechoConsulta? Desfecho,
     Especialidade? EncaminhadoPara,
     OrtopediaRequest? Ortopedia,
+    GinecologiaRequest? Ginecologia,
     List<DispensacaoDto> Dispensacoes,
     DateTime? ConcluidaEm);
 
@@ -759,6 +779,71 @@ public sealed record EnfermagemDto(
     AutorDto? Profissional,
     List<ProcedimentoEnfermagem> Procedimentos,
     string? OutroProcedimento,
+    string? Observacoes,
+    DesfechoConsulta? Desfecho,
+    List<DispensacaoDto> Dispensacoes,
+    DateTime? ConcluidaEm);
+
+// ---------------------------------------------------------------------------
+// Ultrassom
+// ---------------------------------------------------------------------------
+
+public sealed record RegistrarUltrassomRequest
+{
+    [MaxLength(300)]
+    public string? ExameSolicitado { get; init; }
+
+    [MaxLength(1000)]
+    public string? Indicacao { get; init; }
+
+    [MaxLength(4000)]
+    public string? Analise { get; init; }
+
+    [MaxLength(2000)]
+    public string? Conclusao { get; init; }
+
+    public DesfechoConsulta? Desfecho { get; init; }
+    public Especialidade? EncaminhadoPara { get; init; }
+}
+
+/// <remarks>
+/// <c>Profissional</c> carrega o conselho e o registro porque o laudo e assinado:
+/// no papel a linha final e "Medico ___ CRM ___", e um laudo sem ela nao vale
+/// fora do sistema.
+/// </remarks>
+public sealed record UltrassomDto(
+    Guid EtapaId,
+    AutorDto? Profissional,
+    string? ExameSolicitado,
+    string? Indicacao,
+    string? Analise,
+    string? Conclusao,
+    DesfechoConsulta? Desfecho,
+    DateTime? ConcluidaEm);
+
+// ---------------------------------------------------------------------------
+// Farmacia
+// ---------------------------------------------------------------------------
+
+public sealed record RegistrarFarmaciaRequest
+{
+    [MaxLength(2000)]
+    public string? Orientacoes { get; init; }
+
+    [MaxLength(2000)]
+    public string? Observacoes { get; init; }
+
+    public DesfechoConsulta? Desfecho { get; init; }
+    public Especialidade? EncaminhadoPara { get; init; }
+
+    /// <summary>O que saiu de fato. Pode diferir do prescrito — e por isso e conferido.</summary>
+    public List<DispensacaoRequest> Dispensacoes { get; init; } = new();
+}
+
+public sealed record FarmaciaDto(
+    Guid EtapaId,
+    AutorDto? Profissional,
+    string? Orientacoes,
     string? Observacoes,
     DesfechoConsulta? Desfecho,
     List<DispensacaoDto> Dispensacoes,
