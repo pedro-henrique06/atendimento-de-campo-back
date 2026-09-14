@@ -350,6 +350,7 @@ public class Etapa
     public Enfermagem? Enfermagem { get; set; }
     public Ultrassom? Ultrassom { get; set; }
     public Farmacia? Farmacia { get; set; }
+    public Cirurgia? Cirurgia { get; set; }
     public ICollection<Dispensacao> Dispensacoes { get; set; } = new List<Dispensacao>();
 }
 
@@ -573,6 +574,94 @@ public class Enfermagem
     public List<ProcedimentoEnfermagem> Procedimentos { get; set; } = new();
     public string? OutroProcedimento { get; set; }
     public string? Observacoes { get; set; }
+    public DesfechoConsulta? Desfecho { get; set; }
+}
+
+/// <summary>
+/// A ficha cirurgica: o pre-operatorio, as quatro paradas da lista de
+/// verificacao e a recuperacao.
+///
+/// As caixas sao <c>bool</c> simples, e nao <c>bool?</c> como a alergia e a
+/// gestacao. A diferenca e a pergunta: "tem alergia?" tem tres respostas — sim,
+/// nao e nao perguntei —, enquanto numa lista de verificacao a caixa esta
+/// marcada ou nao esta, e nao marcada ja significa "nao conferido". E o que o
+/// papel faz.
+/// </summary>
+public class Cirurgia
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid EtapaId { get; set; }
+    public Etapa? Etapa { get; set; }
+
+    // -- Pre-operatorio ----------------------------------------------------
+
+    public string? Indicacao { get; set; }
+    public string? ProcedimentoProposto { get; set; }
+
+    /// <summary>
+    /// Lado do corpo. Campo proprio porque cirurgia no lado errado e um dos
+    /// erros que a lista existe para impedir.
+    /// </summary>
+    public Lateralidade Lateralidade { get; set; } = Lateralidade.NaoSeAplica;
+
+    public int? JejumHoras { get; set; }
+    public bool ConsentimentoAssinado { get; set; }
+    public string? ObservacoesPreOperatorio { get; set; }
+
+    // -- Check-in: antes de o paciente entrar na sala ----------------------
+
+    public bool CheckInIdentidadeConfirmada { get; set; }
+    public bool CheckInSitioMarcado { get; set; }
+    public bool CheckInConsentimentoConferido { get; set; }
+    public bool CheckInAlergiaConferida { get; set; }
+    public bool CheckInJejumConferido { get; set; }
+
+    /// <summary>
+    /// Quando esta parada foi concluida pela primeira vez.
+    ///
+    /// Carimbada pelo sistema, e nao digitada, e nunca reescrita: a lista de
+    /// verificacao so vale se as paradas tiverem acontecido de fato e em
+    /// momentos distintos. Preenchidas todas de uma vez no fim, as quatro
+    /// marcariam o mesmo minuto — e isso aparece.
+    /// </summary>
+    public DateTime? CheckInEm { get; set; }
+
+    // -- Time out 1: antes da inducao anestesica ---------------------------
+
+    public bool TimeOutUmEquipeApresentada { get; set; }
+    public bool TimeOutUmMonitorizacaoOk { get; set; }
+    public bool TimeOutUmViaAereaAvaliada { get; set; }
+    public bool TimeOutUmRiscoSangramentoAvaliado { get; set; }
+    public DateTime? TimeOutUmEm { get; set; }
+
+    // -- Time out 2: antes da incisao --------------------------------------
+
+    public bool TimeOutDoisPacienteSitioProcedimentoConfirmados { get; set; }
+    public bool TimeOutDoisAntibioticoProfilatico { get; set; }
+    public bool TimeOutDoisImagensDisponiveis { get; set; }
+    public bool TimeOutDoisEventosCriticosRevistos { get; set; }
+    public bool TimeOutDoisMaterialEsterilizado { get; set; }
+    public DateTime? TimeOutDoisEm { get; set; }
+
+    // -- Check-out: antes de sair da sala ----------------------------------
+
+    public bool CheckOutProcedimentoRegistrado { get; set; }
+    public bool CheckOutContagemConfere { get; set; }
+    public bool CheckOutAmostrasIdentificadas { get; set; }
+    public bool CheckOutProblemasComEquipamento { get; set; }
+
+    /// <summary>O que a recuperacao precisa saber antes de receber o paciente.</summary>
+    public string? CheckOutCuidadosRecuperacao { get; set; }
+
+    public DateTime? CheckOutEm { get; set; }
+
+    // -- Recuperacao -------------------------------------------------------
+
+    public DateTime? RecuperacaoEntradaEm { get; set; }
+    public DateTime? RecuperacaoSaidaEm { get; set; }
+    public string? Intercorrencias { get; set; }
+    public string? ObservacoesRecuperacao { get; set; }
+
     public DesfechoConsulta? Desfecho { get; set; }
 }
 

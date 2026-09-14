@@ -206,6 +206,20 @@ public class AtendimentosController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// A ficha cirurgica. Pode ser salva varias vezes — uma por parada da lista
+    /// de verificacao —, e so fecha a fila quando vem com desfecho.
+    /// </summary>
+    [HttpPut("{id:guid}/cirurgia")]
+    public async Task<IActionResult> RegistrarCirurgia(
+        Guid id,
+        [FromBody] RegistrarCirurgiaRequest req,
+        CancellationToken ct)
+    {
+        await _servico.RegistrarCirurgiaAsync(id, req, ProfissionalId, ct);
+        return NoContent();
+    }
+
     [HttpPut("{id:guid}/ultrassom")]
     public async Task<IActionResult> RegistrarUltrassom(
         Guid id,

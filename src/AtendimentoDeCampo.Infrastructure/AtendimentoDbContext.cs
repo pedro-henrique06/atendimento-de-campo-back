@@ -24,6 +24,7 @@ public class AtendimentoDbContext : DbContext
     public DbSet<Enfermagem> Enfermagens => Set<Enfermagem>();
     public DbSet<Ultrassom> Ultrassons => Set<Ultrassom>();
     public DbSet<Farmacia> Farmacias => Set<Farmacia>();
+    public DbSet<Cirurgia> Cirurgias => Set<Cirurgia>();
     public DbSet<ItemCatalogo> ItensCatalogo => Set<ItemCatalogo>();
     public DbSet<EstoqueBase> EstoqueBases => Set<EstoqueBase>();
     public DbSet<Dispensacao> Dispensacoes => Set<Dispensacao>();
@@ -335,6 +336,22 @@ public class AtendimentoDbContext : DbContext
             e.HasOne(x => x.Etapa)
                 .WithOne(x => x.Ultrassom)
                 .HasForeignKey<Ultrassom>(x => x.EtapaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Cirurgia>(e =>
+        {
+            e.ToTable("cirurgia");
+            e.Property(x => x.Indicacao).HasMaxLength(1000);
+            e.Property(x => x.ProcedimentoProposto).HasMaxLength(300);
+            e.Property(x => x.ObservacoesPreOperatorio).HasMaxLength(2000);
+            e.Property(x => x.CheckOutCuidadosRecuperacao).HasMaxLength(1000);
+            e.Property(x => x.Intercorrencias).HasMaxLength(2000);
+            e.Property(x => x.ObservacoesRecuperacao).HasMaxLength(2000);
+
+            e.HasOne(x => x.Etapa)
+                .WithOne(x => x.Cirurgia)
+                .HasForeignKey<Cirurgia>(x => x.EtapaId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

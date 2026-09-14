@@ -430,7 +430,8 @@ public sealed class ServicoAtendimento
         CancellationToken ct = default)
     {
         if (req.Especialidade is Especialidade.Triagem or Especialidade.Odontologia
-            or Especialidade.Enfermagem or Especialidade.Ultrassom or Especialidade.Farmacia)
+            or Especialidade.Enfermagem or Especialidade.Ultrassom or Especialidade.Farmacia
+            or Especialidade.Cirurgia)
         {
             throw new RegraDeNegocioException(
                 $"{req.Especialidade} tem endpoint proprio e nao e registrada como consulta.");
@@ -677,6 +678,156 @@ public sealed class ServicoAtendimento
 
         atendimento.AtualizadoEm = DateTime.UtcNow;
         await _db.SaveChangesAsync(ct);
+    }
+
+    // -----------------------------------------------------------------------
+    // Cirurgia
+    // -----------------------------------------------------------------------
+
+    public async Task RegistrarCirurgiaAsync(
+        Guid atendimentoId,
+        RegistrarCirurgiaRequest req,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarAsync(atendimentoId, ct);
+        var etapa = await ObterOuCriarEtapaAsync(atendimento, Especialidade.Cirurgia, profissionalId, ct);
+
+        var cirurgia = await _db.Cirurgias.FirstOrDefaultAsync(c => c.EtapaId == etapa.Id, ct);
+        var novo = cirurgia is null;
+
+        if (cirurgia is null)
+        {
+            cirurgia = new Cirurgia { EtapaId = etapa.Id };
+            _db.Cirurgias.Add(cirurgia);
+        }
+
+        if (req.Desfecho == DesfechoConsulta.Encaminhado && req.EncaminhadoPara is Especialidade paraOnde)
+        {
+            RecusarVoltaParaTriagem(atendimento, paraOnde);
+        }
+
+        var antes = novo ? new Dictionary<string, string?>() : SnapshotCirurgia(cirurgia);
+
+        cirurgia.Indicacao = req.Indicacao;
+        cirurgia.ProcedimentoProposto = req.ProcedimentoProposto;
+        cirurgia.Lateralidade = req.Lateralidade;
+        cirurgia.JejumHoras = req.JejumHoras;
+        cirurgia.ConsentimentoAssinado = req.ConsentimentoAssinado;
+        cirurgia.ObservacoesPreOperatorio = req.ObservacoesPreOperatorio;
+
+        cirurgia.CheckInIdentidadeConfirmada = req.CheckInIdentidadeConfirmada;
+        cirurgia.CheckInSitioMarcado = req.CheckInSitioMarcado;
+        cirurgia.CheckInConsentimentoConferido = req.CheckInConsentimentoConferido;
+        cirurgia.CheckInAlergiaConferida = req.CheckInAlergiaConferida;
+        cirurgia.CheckInJejumConferido = req.CheckInJejumConferido;
+
+        cirurgia.TimeOutUmEquipeApresentada = req.TimeOutUmEquipeApresentada;
+        cirurgia.TimeOutUmMonitorizacaoOk = req.TimeOutUmMonitorizacaoOk;
+        cirurgia.TimeOutUmViaAereaAvaliada = req.TimeOutUmViaAereaAvaliada;
+        cirurgia.TimeOutUmRiscoSangramentoAvaliado = req.TimeOutUmRiscoSangramentoAvaliado;
+
+        cirurgia.TimeOutDoisPacienteSitioProcedimentoConfirmados = req.TimeOutDoisPacienteSitioProcedimentoConfirmados;
+        cirurgia.TimeOutDoisAntibioticoProfilatico = req.TimeOutDoisAntibioticoProfilatico;
+        cirurgia.TimeOutDoisImagensDisponiveis = req.TimeOutDoisImagensDisponiveis;
+        cirurgia.TimeOutDoisEventosCriticosRevistos = req.TimeOutDoisEventosCriticosRevistos;
+        cirurgia.TimeOutDoisMaterialEsterilizado = req.TimeOutDoisMaterialEsterilizado;
+
+        cirurgia.CheckOutProcedimentoRegistrado = req.CheckOutProcedimentoRegistrado;
+        cirurgia.CheckOutContagemConfere = req.CheckOutContagemConfere;
+        cirurgia.CheckOutAmostrasIdentificadas = req.CheckOutAmostrasIdentificadas;
+        cirurgia.CheckOutProblemasComEquipamento = req.CheckOutProblemasComEquipamento;
+        cirurgia.CheckOutCuidadosRecuperacao = req.CheckOutCuidadosRecuperacao;
+
+        cirurgia.RecuperacaoEntradaEm = req.RecuperacaoEntradaEm?.ToUniversalTime();
+        cirurgia.RecuperacaoSaidaEm = req.RecuperacaoSaidaEm?.ToUniversalTime();
+        cirurgia.Intercorrencias = req.Intercorrencias;
+        cirurgia.ObservacoesRecuperacao = req.ObservacoesRecuperacao;
+
+        cirurgia.Desfecho = req.Desfecho;
+
+        CarimbarParadas(cirurgia);
+
+        _auditoria.RegistrarDiffs(
+            atendimentoId, profissionalId,
+            RegistradorAuditoria.Comparar(antes, SnapshotCirurgia(cirurgia)),
+            Especialidade.Cirurgia,
+            aposFinalizacao: atendimento.FinalizadoEm is not null);
+
+        // A ficha cirurgica e preenchida em quatro momentos, e salvar no
+        // check-in nao pode fechar a fila: a etapa so conclui quando ha
+        // desfecho. Sem isso, quem salva a primeira parada perde o paciente da
+        // propria fila e precisa reabrir a etapa para continuar.
+        if (req.Desfecho is not null)
+        {
+            ConcluirEtapa(etapa, profissionalId);
+            FecharPassagem(atendimento, Especialidade.Cirurgia, profissionalId);
+
+            await _auditoria.RegistrarAsync(
+                atendimentoId, profissionalId, AcaoAuditoria.ConcluiuEtapa, Especialidade.Cirurgia, ct);
+
+            if (req.Desfecho == DesfechoConsulta.Encaminhado && req.EncaminhadoPara is Especialidade destino)
+            {
+                await AbrirFilaAsync(atendimento, destino, ct, profissionalId, Especialidade.Cirurgia);
+            }
+        }
+
+        atendimento.AtualizadoEm = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Carimba a hora de cada parada concluida, e so na primeira vez.
+    ///
+    /// A lista de verificacao so vale se as quatro paradas tiverem acontecido de
+    /// fato e em momentos distintos. Preenchida toda de uma vez no fim — que e o
+    /// que acontece quando a lista vira burocracia —, as quatro marcam o mesmo
+    /// minuto, e isso fica visivel. Reescrever o carimbo a cada salvamento
+    /// apagaria justamente essa evidencia.
+    /// </summary>
+    private static void CarimbarParadas(Cirurgia c)
+    {
+        var agora = DateTime.UtcNow;
+
+        if (c.CheckInEm is null
+            && c.CheckInIdentidadeConfirmada
+            && c.CheckInSitioMarcado
+            && c.CheckInConsentimentoConferido
+            && c.CheckInAlergiaConferida
+            && c.CheckInJejumConferido)
+        {
+            c.CheckInEm = agora;
+        }
+
+        if (c.TimeOutUmEm is null
+            && c.TimeOutUmEquipeApresentada
+            && c.TimeOutUmMonitorizacaoOk
+            && c.TimeOutUmViaAereaAvaliada
+            && c.TimeOutUmRiscoSangramentoAvaliado)
+        {
+            c.TimeOutUmEm = agora;
+        }
+
+        if (c.TimeOutDoisEm is null
+            && c.TimeOutDoisPacienteSitioProcedimentoConfirmados
+            && c.TimeOutDoisAntibioticoProfilatico
+            && c.TimeOutDoisImagensDisponiveis
+            && c.TimeOutDoisEventosCriticosRevistos
+            && c.TimeOutDoisMaterialEsterilizado)
+        {
+            c.TimeOutDoisEm = agora;
+        }
+
+        // "Problemas com equipamento" e o unico que nao entra: marcado significa
+        // que houve problema, e exigir a marcacao para dar a parada por
+        // concluida obrigaria a equipe a relatar um problema que nao teve.
+        if (c.CheckOutEm is null
+            && c.CheckOutProcedimentoRegistrado
+            && c.CheckOutContagemConfere
+            && c.CheckOutAmostrasIdentificadas)
+        {
+            c.CheckOutEm = agora;
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -1531,6 +1682,7 @@ public sealed class ServicoAtendimento
             .Include(a => a.Etapas).ThenInclude(e => e.Enfermagem)
             .Include(a => a.Etapas).ThenInclude(e => e.Ultrassom)
             .Include(a => a.Etapas).ThenInclude(e => e.Farmacia)
+            .Include(a => a.Etapas).ThenInclude(e => e.Cirurgia)
             .Include(a => a.Etapas).ThenInclude(e => e.Dispensacoes).ThenInclude(d => d.Item)
             .FirstOrDefaultAsync(a => a.Id == id, ct)
             ?? throw new RegraDeNegocioException("Atendimento nao encontrado.");
@@ -1864,6 +2016,53 @@ public sealed class ServicoAtendimento
         ["ginecologia.metodoContraceptivo"] = c.Ginecologia?.MetodoContraceptivo,
         ["ginecologia.ultimoPreventivo"] = c.Ginecologia?.UltimoPreventivo
     };
+
+    private static Dictionary<string, string?> SnapshotCirurgia(Cirurgia c) => new()
+    {
+        ["cirurgia.indicacao"] = c.Indicacao,
+        ["cirurgia.procedimento"] = c.ProcedimentoProposto,
+        ["cirurgia.lateralidade"] = c.Lateralidade.ToString(),
+        ["cirurgia.jejumHoras"] = c.JejumHoras?.ToString(),
+        ["cirurgia.consentimento"] = Booleano(c.ConsentimentoAssinado),
+        ["cirurgia.observacoesPreOperatorio"] = c.ObservacoesPreOperatorio,
+
+        // As paradas entram como o conjunto do que foi conferido, e nao caixa a
+        // caixa: campo a campo, uma cirurgia encheria o historico com vinte
+        // linhas e a alteracao que importa se perderia no meio.
+        ["cirurgia.checkIn"] = Conferidos(
+            (c.CheckInIdentidadeConfirmada, "identidade"),
+            (c.CheckInSitioMarcado, "sitio"),
+            (c.CheckInConsentimentoConferido, "consentimento"),
+            (c.CheckInAlergiaConferida, "alergia"),
+            (c.CheckInJejumConferido, "jejum")),
+        ["cirurgia.timeOutUm"] = Conferidos(
+            (c.TimeOutUmEquipeApresentada, "equipe"),
+            (c.TimeOutUmMonitorizacaoOk, "monitorizacao"),
+            (c.TimeOutUmViaAereaAvaliada, "viaAerea"),
+            (c.TimeOutUmRiscoSangramentoAvaliado, "sangramento")),
+        ["cirurgia.timeOutDois"] = Conferidos(
+            (c.TimeOutDoisPacienteSitioProcedimentoConfirmados, "pacienteSitioProcedimento"),
+            (c.TimeOutDoisAntibioticoProfilatico, "antibiotico"),
+            (c.TimeOutDoisImagensDisponiveis, "imagens"),
+            (c.TimeOutDoisEventosCriticosRevistos, "eventosCriticos"),
+            (c.TimeOutDoisMaterialEsterilizado, "esterilizacao")),
+        ["cirurgia.checkOut"] = Conferidos(
+            (c.CheckOutProcedimentoRegistrado, "procedimento"),
+            (c.CheckOutContagemConfere, "contagem"),
+            (c.CheckOutAmostrasIdentificadas, "amostras"),
+            (c.CheckOutProblemasComEquipamento, "problemaEquipamento")),
+        ["cirurgia.cuidadosRecuperacao"] = c.CheckOutCuidadosRecuperacao,
+        ["cirurgia.intercorrencias"] = c.Intercorrencias,
+        ["cirurgia.observacoesRecuperacao"] = c.ObservacoesRecuperacao,
+        ["cirurgia.desfecho"] = c.Desfecho?.ToString()
+    };
+
+    /// <summary>Os itens marcados, em lista, para o historico ler de uma vez.</summary>
+    private static string? Conferidos(params (bool Marcado, string Nome)[] itens)
+    {
+        var marcados = itens.Where(i => i.Marcado).Select(i => i.Nome).ToList();
+        return marcados.Count == 0 ? null : string.Join(",", marcados);
+    }
 
     private static Dictionary<string, string?> SnapshotUltrassom(Ultrassom u) => new()
     {

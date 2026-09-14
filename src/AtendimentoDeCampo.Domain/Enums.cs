@@ -71,6 +71,22 @@ public enum TipoMissao
     Catastrofe = 1
 }
 
+/// <summary>
+/// Lado do corpo em que a cirurgia acontece.
+///
+/// Campo proprio, e nao um pedaco do texto do procedimento: cirurgia no lado
+/// errado e um dos erros que a lista de verificacao existe para impedir, e em
+/// texto livre "joelho D", "joelho dto" e "joelho direito" nao conferem contra
+/// nada.
+/// </summary>
+public enum Lateralidade
+{
+    NaoSeAplica = 0,
+    Direito = 1,
+    Esquerdo = 2,
+    Bilateral = 3
+}
+
 public enum ConselhoTipo
 {
     Nenhum = 0,

@@ -102,6 +102,7 @@ public static class Mapeadores
         var enfEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Enfermagem);
         var usgEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Ultrassom);
         var farmaciaEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Farmacia);
+        var cirurgiaEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Cirurgia);
 
         var consultas = etapas
             .Where(e => e.Consulta is not null)
@@ -156,6 +157,7 @@ public static class Mapeadores
             enfEtapa?.Enfermagem is null ? null : ParaEnfermagemDto(enfEtapa),
             usgEtapa?.Ultrassom is null ? null : ParaUltrassomDto(usgEtapa),
             farmaciaEtapa?.Farmacia is null ? null : ParaFarmaciaDto(farmaciaEtapa),
+            cirurgiaEtapa?.Cirurgia is null ? null : ParaCirurgiaDto(cirurgiaEtapa),
             a.SinaisVitais
                 .OrderBy(m => m.MedidaEm)
                 .Select(m => ParaSinaisVitaisDto(m, idade))
@@ -305,6 +307,50 @@ public static class Mapeadores
             m.EscalaDor,
             m.Observacao,
             marcados);
+    }
+
+    private static CirurgiaDto ParaCirurgiaDto(Etapa etapa)
+    {
+        var c = etapa.Cirurgia!;
+
+        return new CirurgiaDto(
+            etapa.Id,
+            ParaAutor(etapa.Profissional),
+            c.Indicacao,
+            c.ProcedimentoProposto,
+            c.Lateralidade,
+            c.JejumHoras,
+            c.ConsentimentoAssinado,
+            c.ObservacoesPreOperatorio,
+            c.CheckInIdentidadeConfirmada,
+            c.CheckInSitioMarcado,
+            c.CheckInConsentimentoConferido,
+            c.CheckInAlergiaConferida,
+            c.CheckInJejumConferido,
+            c.CheckInEm,
+            c.TimeOutUmEquipeApresentada,
+            c.TimeOutUmMonitorizacaoOk,
+            c.TimeOutUmViaAereaAvaliada,
+            c.TimeOutUmRiscoSangramentoAvaliado,
+            c.TimeOutUmEm,
+            c.TimeOutDoisPacienteSitioProcedimentoConfirmados,
+            c.TimeOutDoisAntibioticoProfilatico,
+            c.TimeOutDoisImagensDisponiveis,
+            c.TimeOutDoisEventosCriticosRevistos,
+            c.TimeOutDoisMaterialEsterilizado,
+            c.TimeOutDoisEm,
+            c.CheckOutProcedimentoRegistrado,
+            c.CheckOutContagemConfere,
+            c.CheckOutAmostrasIdentificadas,
+            c.CheckOutProblemasComEquipamento,
+            c.CheckOutCuidadosRecuperacao,
+            c.CheckOutEm,
+            c.RecuperacaoEntradaEm,
+            c.RecuperacaoSaidaEm,
+            c.Intercorrencias,
+            c.ObservacoesRecuperacao,
+            c.Desfecho,
+            etapa.ConcluidaEm);
     }
 
     private static UltrassomDto ParaUltrassomDto(Etapa etapa)

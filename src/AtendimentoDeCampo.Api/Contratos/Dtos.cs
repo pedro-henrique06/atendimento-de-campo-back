@@ -476,6 +476,7 @@ public sealed record ProntuarioDto(
     EnfermagemDto? Enfermagem,
     UltrassomDto? Ultrassom,
     FarmaciaDto? Farmacia,
+    CirurgiaDto? Cirurgia,
     /// <summary>A folha de observacao, em ordem de hora.</summary>
     List<MedicaoSinaisVitaisDto> SinaisVitais,
     List<EsperaFilaDto> TempoNasFilas,
@@ -850,6 +851,103 @@ public sealed record MedicaoSinaisVitaisDto(
     int? EscalaDor,
     string? Observacao,
     List<string> ForaDaFaixa);
+
+// ---------------------------------------------------------------------------
+// Cirurgia
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// A ficha cirurgica inteira: pre-operatorio, as quatro paradas da lista de
+/// verificacao e a recuperacao.
+/// </summary>
+/// <remarks>
+/// As caixas sao <c>bool</c>, e nao <c>bool?</c>: numa lista de verificacao a
+/// caixa esta marcada ou nao esta, e nao marcada ja significa "nao conferido".
+/// </remarks>
+public sealed record RegistrarCirurgiaRequest
+{
+    [MaxLength(1000)] public string? Indicacao { get; init; }
+    [MaxLength(300)] public string? ProcedimentoProposto { get; init; }
+    public Lateralidade Lateralidade { get; init; } = Lateralidade.NaoSeAplica;
+    [Range(0, 72)] public int? JejumHoras { get; init; }
+    public bool ConsentimentoAssinado { get; init; }
+    [MaxLength(2000)] public string? ObservacoesPreOperatorio { get; init; }
+
+    public bool CheckInIdentidadeConfirmada { get; init; }
+    public bool CheckInSitioMarcado { get; init; }
+    public bool CheckInConsentimentoConferido { get; init; }
+    public bool CheckInAlergiaConferida { get; init; }
+    public bool CheckInJejumConferido { get; init; }
+
+    public bool TimeOutUmEquipeApresentada { get; init; }
+    public bool TimeOutUmMonitorizacaoOk { get; init; }
+    public bool TimeOutUmViaAereaAvaliada { get; init; }
+    public bool TimeOutUmRiscoSangramentoAvaliado { get; init; }
+
+    public bool TimeOutDoisPacienteSitioProcedimentoConfirmados { get; init; }
+    public bool TimeOutDoisAntibioticoProfilatico { get; init; }
+    public bool TimeOutDoisImagensDisponiveis { get; init; }
+    public bool TimeOutDoisEventosCriticosRevistos { get; init; }
+    public bool TimeOutDoisMaterialEsterilizado { get; init; }
+
+    public bool CheckOutProcedimentoRegistrado { get; init; }
+    public bool CheckOutContagemConfere { get; init; }
+    public bool CheckOutAmostrasIdentificadas { get; init; }
+    public bool CheckOutProblemasComEquipamento { get; init; }
+    [MaxLength(1000)] public string? CheckOutCuidadosRecuperacao { get; init; }
+
+    public DateTime? RecuperacaoEntradaEm { get; init; }
+    public DateTime? RecuperacaoSaidaEm { get; init; }
+    [MaxLength(2000)] public string? Intercorrencias { get; init; }
+    [MaxLength(2000)] public string? ObservacoesRecuperacao { get; init; }
+
+    public DesfechoConsulta? Desfecho { get; init; }
+    public Especialidade? EncaminhadoPara { get; init; }
+}
+
+public sealed record CirurgiaDto(
+    Guid EtapaId,
+    AutorDto? Profissional,
+    string? Indicacao,
+    string? ProcedimentoProposto,
+    Lateralidade Lateralidade,
+    int? JejumHoras,
+    bool ConsentimentoAssinado,
+    string? ObservacoesPreOperatorio,
+    bool CheckInIdentidadeConfirmada,
+    bool CheckInSitioMarcado,
+    bool CheckInConsentimentoConferido,
+    bool CheckInAlergiaConferida,
+    bool CheckInJejumConferido,
+    /// <summary>
+    /// Quando cada parada foi concluida. Carimbada pelo sistema e nunca
+    /// reescrita: a lista so vale se as paradas tiverem acontecido de fato, e em
+    /// momentos distintos.
+    /// </summary>
+    DateTime? CheckInEm,
+    bool TimeOutUmEquipeApresentada,
+    bool TimeOutUmMonitorizacaoOk,
+    bool TimeOutUmViaAereaAvaliada,
+    bool TimeOutUmRiscoSangramentoAvaliado,
+    DateTime? TimeOutUmEm,
+    bool TimeOutDoisPacienteSitioProcedimentoConfirmados,
+    bool TimeOutDoisAntibioticoProfilatico,
+    bool TimeOutDoisImagensDisponiveis,
+    bool TimeOutDoisEventosCriticosRevistos,
+    bool TimeOutDoisMaterialEsterilizado,
+    DateTime? TimeOutDoisEm,
+    bool CheckOutProcedimentoRegistrado,
+    bool CheckOutContagemConfere,
+    bool CheckOutAmostrasIdentificadas,
+    bool CheckOutProblemasComEquipamento,
+    string? CheckOutCuidadosRecuperacao,
+    DateTime? CheckOutEm,
+    DateTime? RecuperacaoEntradaEm,
+    DateTime? RecuperacaoSaidaEm,
+    string? Intercorrencias,
+    string? ObservacoesRecuperacao,
+    DesfechoConsulta? Desfecho,
+    DateTime? ConcluidaEm);
 
 // ---------------------------------------------------------------------------
 // Ultrassom
