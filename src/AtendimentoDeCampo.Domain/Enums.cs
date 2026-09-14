@@ -43,7 +43,48 @@ public enum FuncaoProfissional
 
     ClinicoGeral = 10,
     Pediatra = 11,
-    Ortopedista = 12
+    Ortopedista = 12,
+
+    Ginecologista = 13,
+    Cirurgiao = 14,
+    Anestesista = 15,
+    Cardiologista = 16,
+
+    /// <summary>
+    /// Quem opera o aparelho e assina o laudo. No formulario de papel o laudo de
+    /// USG e assinado por "Medico ___ CRM ___", entao o conselho e o CRM.
+    /// </summary>
+    Ultrassonografista = 17
+}
+
+/// <summary>
+/// O tipo de operacao em que a base esta trabalhando.
+///
+/// Sao dois formularios de papel diferentes, e duas operacoes diferentes: na
+/// programada a equipe vai a uma comunidade combinada, com agenda e
+/// especialidades arranjadas de antemao; na catastrofe ela monta base onde deu,
+/// e a triagem e o que manda.
+/// </summary>
+public enum TipoMissao
+{
+    Programada = 0,
+    Catastrofe = 1
+}
+
+/// <summary>
+/// Lado do corpo em que a cirurgia acontece.
+///
+/// Campo proprio, e nao um pedaco do texto do procedimento: cirurgia no lado
+/// errado e um dos erros que a lista de verificacao existe para impedir, e em
+/// texto livre "joelho D", "joelho dto" e "joelho direito" nao conferem contra
+/// nada.
+/// </summary>
+public enum Lateralidade
+{
+    NaoSeAplica = 0,
+    Direito = 1,
+    Esquerdo = 2,
+    Bilateral = 3
 }
 
 public enum ConselhoTipo
@@ -66,7 +107,27 @@ public enum Especialidade
     Ortopedia = 3,
     Odontologia = 4,
     Enfermagem = 5,
-    SaudeMental = 6
+    SaudeMental = 6,
+
+    Ginecologia = 7,
+    Cirurgia = 8,
+    Anestesia = 9,
+
+    /// <summary>Teleconsulta de cardiologia, como no formulario de missao programada.</summary>
+    Cardiologia = 10,
+
+    /// <summary>
+    /// Exame de imagem. Fila derivada: ninguem chega aqui sem alguem ter
+    /// mandado, e o caminho de volta ao solicitante e a devolucao que ja existe.
+    /// </summary>
+    Ultrassom = 11,
+
+    /// <summary>
+    /// Dispensacao e checagem do que foi prescrito. Ate aqui o farmaceutico caia
+    /// na fila da enfermagem por nao haver fila propria — um contorno, nao um
+    /// desenho.
+    /// </summary>
+    Farmacia = 12
 }
 
 /// <summary>
@@ -443,5 +504,17 @@ public enum AcaoAuditoria
     TransferiuParaHospital = 16,
 
     /// <summary>Encerrou por outro motivo, descrito no registro.</summary>
-    EncerrouPorOutroMotivo = 17
+    EncerrouPorOutroMotivo = 17,
+
+    /// <summary>Anotou mais uma medida de sinais vitais na tabela de observacao.</summary>
+    RegistrouSinaisVitais = 18,
+
+    /// <summary>
+    /// Removeu uma linha da tabela de sinais vitais.
+    ///
+    /// Acao propria porque apagar medida de paciente em observacao e o tipo de
+    /// coisa que alguem vai querer explicar depois — no papel a linha errada e
+    /// riscada, e continua la.
+    /// </summary>
+    RemoveuSinaisVitais = 19
 }

@@ -9,6 +9,16 @@ public class Base
     /// <summary>Prefixo de 3 caracteres usado nos codigos de atendimento desta base.</summary>
     public string PrefixoCodigo { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Em que tipo de operacao esta base esta trabalhando agora.
+    ///
+    /// Anulavel, e nao "Programada" por padrao: as bases criadas antes deste
+    /// campo existir nao tem de onde deduzir o tipo, e preencher todas com um
+    /// deles inventaria dado — inclusive chamando de missao programada uma base
+    /// montada numa enchente.
+    /// </summary>
+    public TipoMissao? TipoMissao { get; set; }
+
     public bool Ativa { get; set; } = true;
     public DateTime CriadaEm { get; set; } = DateTime.UtcNow;
 
@@ -212,6 +222,18 @@ public class Atendimento
     public Guid PacienteId { get; set; }
     public Paciente? Paciente { get; set; }
 
+    /// <summary>
+    /// O tipo de operacao em que este atendimento aconteceu, copiado da base na
+    /// abertura.
+    ///
+    /// Copiado, e nao lido da base na hora de mostrar: a mesma escola vira base
+    /// de missao programada em marco e de enchente em novembro, e a coordenacao
+    /// mudar o tipo da base reescreveria o passado — a contagem de atendimentos
+    /// em catastrofe passaria a incluir os da missao programada anterior. E o
+    /// mesmo motivo pelo qual o prefixo trava depois do primeiro atendimento.
+    /// </summary>
+    public TipoMissao? TipoMissao { get; set; }
+
     public StatusAtendimento Status { get; set; } = StatusAtendimento.Aberto;
 
     /// <summary>Definida na triagem; espelhada aqui para filtro no painel.</summary>
@@ -252,7 +274,54 @@ public class Atendimento
 
     public ICollection<Etapa> Etapas { get; set; } = new List<Etapa>();
     public ICollection<PassagemFila> PassagensFila { get; set; } = new List<PassagemFila>();
+    public ICollection<MedicaoSinaisVitais> SinaisVitais { get; set; } = new List<MedicaoSinaisVitais>();
     public ICollection<Auditoria> Auditorias { get; set; } = new List<Auditoria>();
+}
+
+/// <summary>
+/// Uma linha da tabela horaria de sinais vitais — a folha de observacao.
+///
+/// Pendurada no atendimento, e nao numa <see cref="Etapa"/>, porque a tabela e
+/// uma so por paciente: em observacao quem mede e quem esta por perto, e a
+/// pergunta que ela responde — "a pressao esta caindo?" — so tem resposta se as
+/// medidas estiverem na mesma lista, em ordem. Presa a uma fila, cada fila teria
+/// a sua tabela e a tendencia desapareceria entre elas.
+///
+/// Nao substitui os sinais da <see cref="Triagem"/>: aquela e a medida de
+/// entrada, que classifica o risco. Esta e o acompanhamento do que veio depois.
+/// </summary>
+public class MedicaoSinaisVitais
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid AtendimentoId { get; set; }
+    public Atendimento? Atendimento { get; set; }
+
+    /// <summary>
+    /// A hora da medida.
+    ///
+    /// Separada de <see cref="CriadaEm"/> de proposito: em campo se mede agora e
+    /// se anota quando da, e uma tabela horaria que ordena pelo momento da
+    /// digitacao mostra a evolucao fora de ordem.
+    /// </summary>
+    public DateTime MedidaEm { get; set; }
+
+    public Guid RegistradaPorId { get; set; }
+    public Profissional? RegistradaPor { get; set; }
+
+    public int? PressaoSistolica { get; set; }
+    public int? PressaoDiastolica { get; set; }
+    public int? FrequenciaCardiaca { get; set; }
+    public int? FrequenciaRespiratoria { get; set; }
+    public int? SaturacaoO2 { get; set; }
+    public double? TemperaturaCelsius { get; set; }
+    public int? GlicemiaCapilar { get; set; }
+
+    /// <summary>Dor de 0 a 10. De 0, porque "sem dor" e resposta.</summary>
+    public int? EscalaDor { get; set; }
+
+    public string? Observacao { get; set; }
+
+    public DateTime CriadaEm { get; set; } = DateTime.UtcNow;
 }
 
 /// <summary>
@@ -279,6 +348,9 @@ public class Etapa
     public Consulta? Consulta { get; set; }
     public Odontologia? Odontologia { get; set; }
     public Enfermagem? Enfermagem { get; set; }
+    public Ultrassom? Ultrassom { get; set; }
+    public Farmacia? Farmacia { get; set; }
+    public Cirurgia? Cirurgia { get; set; }
     public ICollection<Dispensacao> Dispensacoes { get; set; } = new List<Dispensacao>();
 }
 
@@ -401,6 +473,49 @@ public class Consulta
     public List<PerdaVivenciada> PerdasVivenciadas { get; set; } = new();
 
     public ConsultaOrtopedia? Ortopedia { get; set; }
+    public ConsultaGinecologia? Ginecologia { get; set; }
+}
+
+/// <summary>
+/// Bloco extra preenchido quando a consulta e de ginecologia.
+///
+/// Fica na consulta, e nao numa ficha propria: o resto da ginecologia — queixa,
+/// exame fisico, CID-10, conduta — e o mesmo de qualquer consulta, e duplicar
+/// tudo isso so para acrescentar a historia menstrual criaria duas fichas que
+/// precisariam ser mantidas juntas.
+/// </summary>
+public class ConsultaGinecologia
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid ConsultaId { get; set; }
+    public Consulta? Consulta { get; set; }
+
+    /// <summary>Data da ultima menstruacao (DUM).</summary>
+    public DateOnly? DataUltimaMenstruacao { get; set; }
+
+    /// <summary>
+    /// Gestacoes, partos e abortos — o "G/P/A" do formulario.
+    ///
+    /// Tres campos, e nao um texto "2/1/1": em texto, "G2 P1 A1", "2-1-1" e
+    /// "II/I/I" contam a mesma coisa de tres jeitos, e nenhum deles soma.
+    /// </summary>
+    public int? Gestacoes { get; set; }
+    public int? Partos { get; set; }
+    public int? Abortos { get; set; }
+
+    /// <summary>
+    /// Se esta gravida. Nulo significa que nao foi perguntado, que e diferente
+    /// de ter respondido que nao — a mesma distincao que a alergia ja faz.
+    /// </summary>
+    public bool? Gestante { get; set; }
+
+    /// <summary>Idade gestacional em semanas, quando gestante.</summary>
+    public int? SemanasGestacao { get; set; }
+
+    public string? MetodoContraceptivo { get; set; }
+
+    /// <summary>Quando foi o ultimo preventivo, como a paciente lembrar.</summary>
+    public string? UltimoPreventivo { get; set; }
 }
 
 /// <summary>Bloco extra preenchido quando a consulta e de ortopedia.</summary>
@@ -459,6 +574,155 @@ public class Enfermagem
     public List<ProcedimentoEnfermagem> Procedimentos { get; set; } = new();
     public string? OutroProcedimento { get; set; }
     public string? Observacoes { get; set; }
+    public DesfechoConsulta? Desfecho { get; set; }
+}
+
+/// <summary>
+/// A ficha cirurgica: o pre-operatorio, as quatro paradas da lista de
+/// verificacao e a recuperacao.
+///
+/// As caixas sao <c>bool</c> simples, e nao <c>bool?</c> como a alergia e a
+/// gestacao. A diferenca e a pergunta: "tem alergia?" tem tres respostas — sim,
+/// nao e nao perguntei —, enquanto numa lista de verificacao a caixa esta
+/// marcada ou nao esta, e nao marcada ja significa "nao conferido". E o que o
+/// papel faz.
+/// </summary>
+public class Cirurgia
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid EtapaId { get; set; }
+    public Etapa? Etapa { get; set; }
+
+    // -- Pre-operatorio ----------------------------------------------------
+
+    public string? Indicacao { get; set; }
+    public string? ProcedimentoProposto { get; set; }
+
+    /// <summary>
+    /// Lado do corpo. Campo proprio porque cirurgia no lado errado e um dos
+    /// erros que a lista existe para impedir.
+    /// </summary>
+    public Lateralidade Lateralidade { get; set; } = Lateralidade.NaoSeAplica;
+
+    public int? JejumHoras { get; set; }
+    public bool ConsentimentoAssinado { get; set; }
+    public string? ObservacoesPreOperatorio { get; set; }
+
+    // -- Check-in: antes de o paciente entrar na sala ----------------------
+
+    public bool CheckInIdentidadeConfirmada { get; set; }
+    public bool CheckInSitioMarcado { get; set; }
+    public bool CheckInConsentimentoConferido { get; set; }
+    public bool CheckInAlergiaConferida { get; set; }
+    public bool CheckInJejumConferido { get; set; }
+
+    /// <summary>
+    /// Quando esta parada foi concluida pela primeira vez.
+    ///
+    /// Carimbada pelo sistema, e nao digitada, e nunca reescrita: a lista de
+    /// verificacao so vale se as paradas tiverem acontecido de fato e em
+    /// momentos distintos. Preenchidas todas de uma vez no fim, as quatro
+    /// marcariam o mesmo minuto — e isso aparece.
+    /// </summary>
+    public DateTime? CheckInEm { get; set; }
+
+    // -- Time out 1: antes da inducao anestesica ---------------------------
+
+    public bool TimeOutUmEquipeApresentada { get; set; }
+    public bool TimeOutUmMonitorizacaoOk { get; set; }
+    public bool TimeOutUmViaAereaAvaliada { get; set; }
+    public bool TimeOutUmRiscoSangramentoAvaliado { get; set; }
+    public DateTime? TimeOutUmEm { get; set; }
+
+    // -- Time out 2: antes da incisao --------------------------------------
+
+    public bool TimeOutDoisPacienteSitioProcedimentoConfirmados { get; set; }
+    public bool TimeOutDoisAntibioticoProfilatico { get; set; }
+    public bool TimeOutDoisImagensDisponiveis { get; set; }
+    public bool TimeOutDoisEventosCriticosRevistos { get; set; }
+    public bool TimeOutDoisMaterialEsterilizado { get; set; }
+    public DateTime? TimeOutDoisEm { get; set; }
+
+    // -- Check-out: antes de sair da sala ----------------------------------
+
+    public bool CheckOutProcedimentoRegistrado { get; set; }
+    public bool CheckOutContagemConfere { get; set; }
+    public bool CheckOutAmostrasIdentificadas { get; set; }
+    public bool CheckOutProblemasComEquipamento { get; set; }
+
+    /// <summary>O que a recuperacao precisa saber antes de receber o paciente.</summary>
+    public string? CheckOutCuidadosRecuperacao { get; set; }
+
+    public DateTime? CheckOutEm { get; set; }
+
+    // -- Recuperacao -------------------------------------------------------
+
+    public DateTime? RecuperacaoEntradaEm { get; set; }
+    public DateTime? RecuperacaoSaidaEm { get; set; }
+    public string? Intercorrencias { get; set; }
+    public string? ObservacoesRecuperacao { get; set; }
+
+    public DesfechoConsulta? Desfecho { get; set; }
+}
+
+/// <summary>
+/// O laudo do exame de imagem.
+///
+/// Nao e uma consulta: nao ha CID-10 nem conduta aqui. Quem faz o exame
+/// descreve o que viu e conclui; quem decide o que fazer com isso e quem pediu,
+/// e o caminho de volta ate ele e a devolucao que ja existe.
+/// </summary>
+public class Ultrassom
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid EtapaId { get; set; }
+    public Etapa? Etapa { get; set; }
+
+    /// <summary>Qual exame foi pedido, ex.: "USG abdome total".</summary>
+    public string? ExameSolicitado { get; set; }
+
+    /// <summary>Por que foi pedido — o que o laudo precisa responder.</summary>
+    public string? Indicacao { get; set; }
+
+    /// <summary>A descricao do que se viu.</summary>
+    public string? Analise { get; set; }
+
+    /// <summary>
+    /// A conclusao do laudo.
+    ///
+    /// Separada da analise porque e ela que quem pediu le primeiro, e no papel
+    /// as duas sao linhas distintas. Juntas numa caixa so, a conclusao vira o
+    /// ultimo paragrafo de um texto corrido e deixa de ser achavel.
+    /// </summary>
+    public string? Conclusao { get; set; }
+
+    public DesfechoConsulta? Desfecho { get; set; }
+}
+
+/// <summary>
+/// A passagem pela farmacia: o que foi entregue, por quem e quando.
+///
+/// As linhas do que saiu sao <see cref="Dispensacao"/> presas a esta etapa, como
+/// nas outras fichas. O "por quem" e o "quando" nao sao campos: sao o
+/// profissional e a conclusao da propria etapa, que ja existem e nao podem
+/// divergir do resto do atendimento — que e o que aconteceria se a farmacia
+/// tivesse a sua propria copia deles.
+/// </summary>
+public class Farmacia
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid EtapaId { get; set; }
+    public Etapa? Etapa { get; set; }
+
+    /// <summary>Orientacao farmaceutica dada a quem recebeu.</summary>
+    public string? Orientacoes { get; set; }
+
+    /// <summary>
+    /// O que fugiu do previsto: item em falta, dose trocada por outra
+    /// apresentacao, receita ilegivel.
+    /// </summary>
+    public string? Observacoes { get; set; }
+
     public DesfechoConsulta? Desfecho { get; set; }
 }
 

@@ -100,6 +100,9 @@ public static class Mapeadores
         var triagemEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Triagem);
         var odontoEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Odontologia);
         var enfEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Enfermagem);
+        var usgEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Ultrassom);
+        var farmaciaEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Farmacia);
+        var cirurgiaEtapa = etapas.FirstOrDefault(e => e.Especialidade == Especialidade.Cirurgia);
 
         var consultas = etapas
             .Where(e => e.Consulta is not null)
@@ -133,8 +136,11 @@ public static class Mapeadores
         return new ProntuarioDto(
             a.Id,
             a.Codigo,
-            new BaseDto(a.Base!.Id, a.Base.Nome, a.Base.PrefixoCodigo, a.Base.Ativa),
+            new BaseDto(a.Base!.Id, a.Base.Nome, a.Base.PrefixoCodigo, a.Base.Ativa, a.Base.TipoMissao),
             ParaDto(a.Paciente!),
+            // O tipo do atendimento, e nao o da base agora: a base pode ter
+            // mudado de operacao desde entao.
+            a.TipoMissao,
             a.Status,
             a.ClassificacaoRisco,
             a.QueixaPrincipal,
@@ -149,6 +155,13 @@ public static class Mapeadores
             consultas,
             odontoEtapa?.Odontologia is null ? null : ParaOdontologiaDto(odontoEtapa),
             enfEtapa?.Enfermagem is null ? null : ParaEnfermagemDto(enfEtapa),
+            usgEtapa?.Ultrassom is null ? null : ParaUltrassomDto(usgEtapa),
+            farmaciaEtapa?.Farmacia is null ? null : ParaFarmaciaDto(farmaciaEtapa),
+            cirurgiaEtapa?.Cirurgia is null ? null : ParaCirurgiaDto(cirurgiaEtapa),
+            a.SinaisVitais
+                .OrderBy(m => m.MedidaEm)
+                .Select(m => ParaSinaisVitaisDto(m, idade))
+                .ToList(),
             tempos,
             historico,
             etapas.Select(e => ParaEtapaResumo(e, a)).ToList());
@@ -225,6 +238,20 @@ public static class Mapeadores
                 NecessitaRaioX = c.Ortopedia.NecessitaRaioX
             };
 
+        GinecologiaRequest? ginecologia = c.Ginecologia is null
+            ? null
+            : new GinecologiaRequest
+            {
+                DataUltimaMenstruacao = c.Ginecologia.DataUltimaMenstruacao,
+                Gestacoes = c.Ginecologia.Gestacoes,
+                Partos = c.Ginecologia.Partos,
+                Abortos = c.Ginecologia.Abortos,
+                Gestante = c.Ginecologia.Gestante,
+                SemanasGestacao = c.Ginecologia.SemanasGestacao,
+                MetodoContraceptivo = c.Ginecologia.MetodoContraceptivo,
+                UltimoPreventivo = c.Ginecologia.UltimoPreventivo
+            };
+
         return new ConsultaDto(
             etapa.Id,
             etapa.Especialidade,
@@ -240,6 +267,117 @@ public static class Mapeadores
             c.Desfecho,
             c.EncaminhadoPara,
             ortopedia,
+            ginecologia,
+            etapa.Dispensacoes.Select(ParaDispensacaoDto).ToList(),
+            etapa.ConcluidaEm);
+    }
+
+    /// <param name="idadeDoPaciente">
+    /// Decide se a marcacao de fora da faixa pode ser lida: o corte e de adulto.
+    /// Vem por parametro pela mesma razao da triagem — depender da navegacao
+    /// inversa numa consulta sem rastreamento devolve nulo sem ninguem perceber.
+    /// </param>
+    public static MedicaoSinaisVitaisDto ParaSinaisVitaisDto(MedicaoSinaisVitais m, int? idadeDoPaciente)
+    {
+        var fora = FaixasDeSinaisVitais.Avaliar(
+            idadeDoPaciente,
+            m.PressaoSistolica,
+            m.FrequenciaCardiaca,
+            m.FrequenciaRespiratoria,
+            m.SaturacaoO2,
+            m.TemperaturaCelsius,
+            m.GlicemiaCapilar);
+
+        var marcados = Enum.GetValues<SinalForaDaFaixa>()
+            .Where(s => s != SinalForaDaFaixa.Nenhum && fora.HasFlag(s))
+            .Select(s => s.ToString())
+            .ToList();
+
+        return new MedicaoSinaisVitaisDto(
+            m.Id,
+            m.MedidaEm,
+            m.RegistradaPor?.Nome ?? "-",
+            m.PressaoSistolica,
+            m.PressaoDiastolica,
+            m.FrequenciaCardiaca,
+            m.FrequenciaRespiratoria,
+            m.SaturacaoO2,
+            m.TemperaturaCelsius,
+            m.GlicemiaCapilar,
+            m.EscalaDor,
+            m.Observacao,
+            marcados);
+    }
+
+    private static CirurgiaDto ParaCirurgiaDto(Etapa etapa)
+    {
+        var c = etapa.Cirurgia!;
+
+        return new CirurgiaDto(
+            etapa.Id,
+            ParaAutor(etapa.Profissional),
+            c.Indicacao,
+            c.ProcedimentoProposto,
+            c.Lateralidade,
+            c.JejumHoras,
+            c.ConsentimentoAssinado,
+            c.ObservacoesPreOperatorio,
+            c.CheckInIdentidadeConfirmada,
+            c.CheckInSitioMarcado,
+            c.CheckInConsentimentoConferido,
+            c.CheckInAlergiaConferida,
+            c.CheckInJejumConferido,
+            c.CheckInEm,
+            c.TimeOutUmEquipeApresentada,
+            c.TimeOutUmMonitorizacaoOk,
+            c.TimeOutUmViaAereaAvaliada,
+            c.TimeOutUmRiscoSangramentoAvaliado,
+            c.TimeOutUmEm,
+            c.TimeOutDoisPacienteSitioProcedimentoConfirmados,
+            c.TimeOutDoisAntibioticoProfilatico,
+            c.TimeOutDoisImagensDisponiveis,
+            c.TimeOutDoisEventosCriticosRevistos,
+            c.TimeOutDoisMaterialEsterilizado,
+            c.TimeOutDoisEm,
+            c.CheckOutProcedimentoRegistrado,
+            c.CheckOutContagemConfere,
+            c.CheckOutAmostrasIdentificadas,
+            c.CheckOutProblemasComEquipamento,
+            c.CheckOutCuidadosRecuperacao,
+            c.CheckOutEm,
+            c.RecuperacaoEntradaEm,
+            c.RecuperacaoSaidaEm,
+            c.Intercorrencias,
+            c.ObservacoesRecuperacao,
+            c.Desfecho,
+            etapa.ConcluidaEm);
+    }
+
+    private static UltrassomDto ParaUltrassomDto(Etapa etapa)
+    {
+        var u = etapa.Ultrassom!;
+
+        return new UltrassomDto(
+            etapa.Id,
+            ParaAutor(etapa.Profissional),
+            u.ExameSolicitado,
+            u.Indicacao,
+            u.Analise,
+            u.Conclusao,
+            u.Desfecho,
+            etapa.ConcluidaEm);
+    }
+
+    private static FarmaciaDto ParaFarmaciaDto(Etapa etapa)
+    {
+        var f = etapa.Farmacia!;
+
+        return new FarmaciaDto(
+            etapa.Id,
+            ParaAutor(etapa.Profissional),
+            f.Orientacoes,
+            f.Observacoes,
+            f.Desfecho,
             etapa.Dispensacoes.Select(ParaDispensacaoDto).ToList(),
             etapa.ConcluidaEm);
     }

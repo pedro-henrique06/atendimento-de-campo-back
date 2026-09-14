@@ -28,7 +28,7 @@ public class CatalogoController : ControllerBase
             .AsNoTracking()
             .Where(b => b.Ativa)
             .OrderBy(b => b.Nome)
-            .Select(b => new BaseDto(b.Id, b.Nome, b.PrefixoCodigo, b.Ativa))
+            .Select(b => new BaseDto(b.Id, b.Nome, b.PrefixoCodigo, b.Ativa, b.TipoMissao))
             .ToListAsync(ct));
 
     /// <summary>

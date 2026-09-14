@@ -35,6 +35,7 @@ public sealed class ServicoBases
                 b.Id,
                 b.Nome,
                 b.PrefixoCodigo,
+                b.TipoMissao,
                 b.Ativa,
                 b.CriadaEm,
                 b.Atendimentos.Count,
@@ -52,13 +53,19 @@ public sealed class ServicoBases
         await ImpedirNomeRepetidoAsync(nome, null, ct);
         await ImpedirPrefixoRepetidoAsync(prefixo, null, ct);
 
-        var criada = new Base { Nome = nome, PrefixoCodigo = prefixo, Ativa = true };
+        var criada = new Base
+        {
+            Nome = nome,
+            PrefixoCodigo = prefixo,
+            TipoMissao = req.TipoMissao,
+            Ativa = true
+        };
 
         _db.Bases.Add(criada);
         await _db.SaveChangesAsync(ct);
 
-        return new BaseAdminDto(criada.Id, criada.Nome, criada.PrefixoCodigo, criada.Ativa,
-            criada.CriadaEm, 0, 0, true);
+        return new BaseAdminDto(criada.Id, criada.Nome, criada.PrefixoCodigo, criada.TipoMissao,
+            criada.Ativa, criada.CriadaEm, 0, 0, true);
     }
 
     public async Task<BaseAdminDto> AtualizarAsync(
@@ -88,9 +95,17 @@ public sealed class ServicoBases
         }
 
         alvo.Nome = nome;
+
+        // Nulo mantem o que esta gravado: a tela de edicao que nao manda o campo
+        // nao pode apagar o tipo de uma base que ja o tem.
+        if (req.TipoMissao is not null)
+        {
+            alvo.TipoMissao = req.TipoMissao;
+        }
+
         await _db.SaveChangesAsync(ct);
 
-        return new BaseAdminDto(alvo.Id, alvo.Nome, alvo.PrefixoCodigo, alvo.Ativa, alvo.CriadaEm,
+        return new BaseAdminDto(alvo.Id, alvo.Nome, alvo.PrefixoCodigo, alvo.TipoMissao, alvo.Ativa, alvo.CriadaEm,
             await _db.Atendimentos.CountAsync(a => a.BaseId == id, ct),
             await _db.Atendimentos.CountAsync(a => a.BaseId == id && a.Status == StatusAtendimento.Aberto, ct),
             !temAtendimento);
@@ -133,7 +148,7 @@ public sealed class ServicoBases
         alvo.Ativa = ativa;
         await _db.SaveChangesAsync(ct);
 
-        return new BaseAdminDto(alvo.Id, alvo.Nome, alvo.PrefixoCodigo, alvo.Ativa, alvo.CriadaEm,
+        return new BaseAdminDto(alvo.Id, alvo.Nome, alvo.PrefixoCodigo, alvo.TipoMissao, alvo.Ativa, alvo.CriadaEm,
             await _db.Atendimentos.CountAsync(a => a.BaseId == id, ct),
             await _db.Atendimentos.CountAsync(a => a.BaseId == id && a.Status == StatusAtendimento.Aberto, ct),
             !await _db.Atendimentos.AnyAsync(a => a.BaseId == id, ct));

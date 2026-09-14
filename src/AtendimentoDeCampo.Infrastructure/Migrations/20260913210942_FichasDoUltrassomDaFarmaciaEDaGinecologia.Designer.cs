@@ -3,6 +3,7 @@ using System;
 using AtendimentoDeCampo.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AtendimentoDeCampo.Infrastructure.Migrations
 {
     [DbContext(typeof(AtendimentoDbContext))]
-    partial class AtendimentoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260913210942_FichasDoUltrassomDaFarmaciaEDaGinecologia")]
+    partial class FichasDoUltrassomDaFarmaciaEDaGinecologia
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -78,9 +81,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasColumnType("character varying(500)");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("TipoMissao")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
@@ -169,9 +169,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)");
 
-                    b.Property<int?>("TipoMissao")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
 
                     b.HasIndex("PrefixoCodigo")
@@ -210,131 +207,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.HasIndex("DescricaoPt");
 
                     b.ToTable("cid10", (string)null);
-                });
-
-            modelBuilder.Entity("AtendimentoDeCampo.Domain.Cirurgia", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("CheckInAlergiaConferida")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CheckInConsentimentoConferido")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("CheckInEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("CheckInIdentidadeConfirmada")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CheckInJejumConferido")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CheckInSitioMarcado")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CheckOutAmostrasIdentificadas")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CheckOutContagemConfere")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("CheckOutCuidadosRecuperacao")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<DateTime?>("CheckOutEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("CheckOutProblemasComEquipamento")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("CheckOutProcedimentoRegistrado")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("ConsentimentoAssinado")
-                        .HasColumnType("boolean");
-
-                    b.Property<int?>("Desfecho")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("EtapaId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Indicacao")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("Intercorrencias")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<int?>("JejumHoras")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("Lateralidade")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ObservacoesPreOperatorio")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("ObservacoesRecuperacao")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("ProcedimentoProposto")
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)");
-
-                    b.Property<DateTime?>("RecuperacaoEntradaEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("RecuperacaoSaidaEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("TimeOutDoisAntibioticoProfilatico")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("TimeOutDoisEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("TimeOutDoisEventosCriticosRevistos")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("TimeOutDoisImagensDisponiveis")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("TimeOutDoisMaterialEsterilizado")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("TimeOutDoisPacienteSitioProcedimentoConfirmados")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime?>("TimeOutUmEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<bool>("TimeOutUmEquipeApresentada")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("TimeOutUmMonitorizacaoOk")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("TimeOutUmRiscoSangramentoAvaliado")
-                        .HasColumnType("boolean");
-
-                    b.Property<bool>("TimeOutUmViaAereaAvaliada")
-                        .HasColumnType("boolean");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EtapaId")
-                        .IsUnique();
-
-                    b.ToTable("cirurgia", (string)null);
                 });
 
             modelBuilder.Entity("AtendimentoDeCampo.Domain.Comunidade", b =>
@@ -744,61 +616,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("marcacoes_dente", (string)null);
-                });
-
-            modelBuilder.Entity("AtendimentoDeCampo.Domain.MedicaoSinaisVitais", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AtendimentoId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTime>("CriadaEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("EscalaDor")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("FrequenciaCardiaca")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("FrequenciaRespiratoria")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("GlicemiaCapilar")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("MedidaEm")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("Observacao")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<int?>("PressaoDiastolica")
-                        .HasColumnType("integer");
-
-                    b.Property<int?>("PressaoSistolica")
-                        .HasColumnType("integer");
-
-                    b.Property<Guid>("RegistradaPorId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int?>("SaturacaoO2")
-                        .HasColumnType("integer");
-
-                    b.Property<double?>("TemperaturaCelsius")
-                        .HasColumnType("double precision");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("RegistradaPorId");
-
-                    b.HasIndex("AtendimentoId", "MedidaEm");
-
-                    b.ToTable("sinais_vitais", (string)null);
                 });
 
             modelBuilder.Entity("AtendimentoDeCampo.Domain.Odontologia", b =>
@@ -1267,17 +1084,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Navigation("Profissional");
                 });
 
-            modelBuilder.Entity("AtendimentoDeCampo.Domain.Cirurgia", b =>
-                {
-                    b.HasOne("AtendimentoDeCampo.Domain.Etapa", "Etapa")
-                        .WithOne("Cirurgia")
-                        .HasForeignKey("AtendimentoDeCampo.Domain.Cirurgia", "EtapaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Etapa");
-                });
-
             modelBuilder.Entity("AtendimentoDeCampo.Domain.Consulta", b =>
                 {
                     b.HasOne("AtendimentoDeCampo.Domain.Cid10", "Cid10")
@@ -1406,25 +1212,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Navigation("Odontologia");
                 });
 
-            modelBuilder.Entity("AtendimentoDeCampo.Domain.MedicaoSinaisVitais", b =>
-                {
-                    b.HasOne("AtendimentoDeCampo.Domain.Atendimento", "Atendimento")
-                        .WithMany("SinaisVitais")
-                        .HasForeignKey("AtendimentoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("AtendimentoDeCampo.Domain.Profissional", "RegistradaPor")
-                        .WithMany()
-                        .HasForeignKey("RegistradaPorId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Atendimento");
-
-                    b.Navigation("RegistradaPor");
-                });
-
             modelBuilder.Entity("AtendimentoDeCampo.Domain.Odontologia", b =>
                 {
                     b.HasOne("AtendimentoDeCampo.Domain.Cid10", "Cid10")
@@ -1524,8 +1311,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Navigation("Etapas");
 
                     b.Navigation("PassagensFila");
-
-                    b.Navigation("SinaisVitais");
                 });
 
             modelBuilder.Entity("AtendimentoDeCampo.Domain.Base", b =>
@@ -1549,8 +1334,6 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
 
             modelBuilder.Entity("AtendimentoDeCampo.Domain.Etapa", b =>
                 {
-                    b.Navigation("Cirurgia");
-
                     b.Navigation("Consulta");
 
                     b.Navigation("Dispensacoes");

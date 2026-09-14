@@ -18,14 +18,19 @@ public class AtendimentoDbContext : DbContext
     public DbSet<Triagem> Triagens => Set<Triagem>();
     public DbSet<Consulta> Consultas => Set<Consulta>();
     public DbSet<ConsultaOrtopedia> ConsultasOrtopedia => Set<ConsultaOrtopedia>();
+    public DbSet<ConsultaGinecologia> ConsultasGinecologia => Set<ConsultaGinecologia>();
     public DbSet<Odontologia> Odontologias => Set<Odontologia>();
     public DbSet<MarcacaoDente> MarcacoesDente => Set<MarcacaoDente>();
     public DbSet<Enfermagem> Enfermagens => Set<Enfermagem>();
+    public DbSet<Ultrassom> Ultrassons => Set<Ultrassom>();
+    public DbSet<Farmacia> Farmacias => Set<Farmacia>();
+    public DbSet<Cirurgia> Cirurgias => Set<Cirurgia>();
     public DbSet<ItemCatalogo> ItensCatalogo => Set<ItemCatalogo>();
     public DbSet<EstoqueBase> EstoqueBases => Set<EstoqueBase>();
     public DbSet<Dispensacao> Dispensacoes => Set<Dispensacao>();
     public DbSet<Cid10> Cid10s => Set<Cid10>();
     public DbSet<PassagemFila> PassagensFila => Set<PassagemFila>();
+    public DbSet<MedicaoSinaisVitais> SinaisVitais => Set<MedicaoSinaisVitais>();
     public DbSet<Auditoria> Auditorias => Set<Auditoria>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -259,6 +264,18 @@ public class AtendimentoDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        b.Entity<ConsultaGinecologia>(e =>
+        {
+            e.ToTable("consultas_ginecologia");
+            e.Property(x => x.MetodoContraceptivo).HasMaxLength(200);
+            e.Property(x => x.UltimoPreventivo).HasMaxLength(200);
+
+            e.HasOne(x => x.Consulta)
+                .WithOne(x => x.Ginecologia)
+                .HasForeignKey<ConsultaGinecologia>(x => x.ConsultaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         b.Entity<Odontologia>(e =>
         {
             e.ToTable("odontologia");
@@ -305,6 +322,48 @@ public class AtendimentoDbContext : DbContext
             e.HasOne(x => x.Etapa)
                 .WithOne(x => x.Enfermagem)
                 .HasForeignKey<Enfermagem>(x => x.EtapaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Ultrassom>(e =>
+        {
+            e.ToTable("ultrassom");
+            e.Property(x => x.ExameSolicitado).HasMaxLength(300);
+            e.Property(x => x.Indicacao).HasMaxLength(1000);
+            e.Property(x => x.Analise).HasMaxLength(4000);
+            e.Property(x => x.Conclusao).HasMaxLength(2000);
+
+            e.HasOne(x => x.Etapa)
+                .WithOne(x => x.Ultrassom)
+                .HasForeignKey<Ultrassom>(x => x.EtapaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Cirurgia>(e =>
+        {
+            e.ToTable("cirurgia");
+            e.Property(x => x.Indicacao).HasMaxLength(1000);
+            e.Property(x => x.ProcedimentoProposto).HasMaxLength(300);
+            e.Property(x => x.ObservacoesPreOperatorio).HasMaxLength(2000);
+            e.Property(x => x.CheckOutCuidadosRecuperacao).HasMaxLength(1000);
+            e.Property(x => x.Intercorrencias).HasMaxLength(2000);
+            e.Property(x => x.ObservacoesRecuperacao).HasMaxLength(2000);
+
+            e.HasOne(x => x.Etapa)
+                .WithOne(x => x.Cirurgia)
+                .HasForeignKey<Cirurgia>(x => x.EtapaId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<Farmacia>(e =>
+        {
+            e.ToTable("farmacia");
+            e.Property(x => x.Orientacoes).HasMaxLength(2000);
+            e.Property(x => x.Observacoes).HasMaxLength(2000);
+
+            e.HasOne(x => x.Etapa)
+                .WithOne(x => x.Farmacia)
+                .HasForeignKey<Farmacia>(x => x.EtapaId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }
@@ -401,6 +460,27 @@ public class AtendimentoDbContext : DbContext
 
             // O relatorio de producao le por profissional e por periodo.
             e.HasIndex(x => new { x.ProfissionalId, x.ConcluidaEm });
+        });
+
+        b.Entity<MedicaoSinaisVitais>(e =>
+        {
+            e.ToTable("sinais_vitais");
+            e.Property(x => x.Observacao).HasMaxLength(500);
+
+            e.HasOne(x => x.Atendimento)
+                .WithMany(x => x.SinaisVitais)
+                .HasForeignKey(x => x.AtendimentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict: apagar um profissional nao pode levar junto a medida que
+            // ele anotou de um paciente.
+            e.HasOne(x => x.RegistradaPor)
+                .WithMany()
+                .HasForeignKey(x => x.RegistradaPorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // A tabela e sempre lida inteira e em ordem de hora.
+            e.HasIndex(x => new { x.AtendimentoId, x.MedidaEm });
         });
 
         b.Entity<Auditoria>(e =>

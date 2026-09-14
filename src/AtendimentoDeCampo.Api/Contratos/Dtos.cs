@@ -125,7 +125,13 @@ public sealed record UsuarioDisponivelResponse(string Usuario, bool Disponivel);
 // Bases
 // ---------------------------------------------------------------------------
 
-public sealed record BaseDto(Guid Id, string Nome, string PrefixoCodigo, bool Ativa);
+public sealed record BaseDto(
+    Guid Id,
+    string Nome,
+    string PrefixoCodigo,
+    bool Ativa,
+    /// <summary>Nulo nas bases criadas antes do campo existir.</summary>
+    TipoMissao? TipoMissao);
 
 /// <summary>
 /// A base como a coordenacao a ve: com o que ela precisa para decidir. O total
@@ -136,6 +142,7 @@ public sealed record BaseAdminDto(
     Guid Id,
     string Nome,
     string PrefixoCodigo,
+    TipoMissao? TipoMissao,
     bool Ativa,
     DateTime CriadaEm,
     int TotalAtendimentos,
@@ -150,6 +157,12 @@ public sealed record SalvarBaseRequest
     /// <summary>Vazio deriva do nome, que e o que a tela ja sugere.</summary>
     [MaxLength(3)]
     public string? PrefixoCodigo { get; init; }
+
+    /// <summary>
+    /// Nulo mantem o que esta gravado — inclusive "nao informado", nas bases
+    /// anteriores ao campo.
+    /// </summary>
+    public TipoMissao? TipoMissao { get; init; }
 }
 
 public sealed record DefinirAtivaRequest
@@ -440,6 +453,11 @@ public sealed record ProntuarioDto(
     string Codigo,
     BaseDto Base,
     PacienteDto Paciente,
+    /// <summary>
+    /// Em que operacao este atendimento aconteceu, copiado da base na abertura.
+    /// Nulo nos anteriores ao campo e nos abertos em base sem tipo informado.
+    /// </summary>
+    TipoMissao? TipoMissao,
     StatusAtendimento Status,
     ClassificacaoRisco? ClassificacaoRisco,
     string? QueixaPrincipal,
@@ -456,6 +474,11 @@ public sealed record ProntuarioDto(
     List<ConsultaDto> Consultas,
     OdontologiaDto? Odontologia,
     EnfermagemDto? Enfermagem,
+    UltrassomDto? Ultrassom,
+    FarmaciaDto? Farmacia,
+    CirurgiaDto? Cirurgia,
+    /// <summary>A folha de observacao, em ordem de hora.</summary>
+    List<MedicaoSinaisVitaisDto> SinaisVitais,
     List<EsperaFilaDto> TempoNasFilas,
     List<AuditoriaDto> Historico,
     /// <summary>
@@ -619,6 +642,22 @@ public sealed record OrtopediaRequest
     public bool NecessitaRaioX { get; init; }
 }
 
+public sealed record GinecologiaRequest
+{
+    public DateOnly? DataUltimaMenstruacao { get; init; }
+
+    [Range(0, 30)] public int? Gestacoes { get; init; }
+    [Range(0, 30)] public int? Partos { get; init; }
+    [Range(0, 30)] public int? Abortos { get; init; }
+
+    public bool? Gestante { get; init; }
+
+    [Range(1, 45)] public int? SemanasGestacao { get; init; }
+
+    [MaxLength(200)] public string? MetodoContraceptivo { get; init; }
+    [MaxLength(200)] public string? UltimoPreventivo { get; init; }
+}
+
 public sealed record RegistrarConsultaRequest
 {
     [Required]
@@ -657,6 +696,7 @@ public sealed record RegistrarConsultaRequest
     public List<PerdaVivenciada> PerdasVivenciadas { get; init; } = new();
 
     public OrtopediaRequest? Ortopedia { get; init; }
+    public GinecologiaRequest? Ginecologia { get; init; }
     public List<DispensacaoRequest> Dispensacoes { get; init; } = new();
 }
 
@@ -684,6 +724,7 @@ public sealed record ConsultaDto(
     DesfechoConsulta? Desfecho,
     Especialidade? EncaminhadoPara,
     OrtopediaRequest? Ortopedia,
+    GinecologiaRequest? Ginecologia,
     List<DispensacaoDto> Dispensacoes,
     DateTime? ConcluidaEm);
 
@@ -759,6 +800,215 @@ public sealed record EnfermagemDto(
     AutorDto? Profissional,
     List<ProcedimentoEnfermagem> Procedimentos,
     string? OutroProcedimento,
+    string? Observacoes,
+    DesfechoConsulta? Desfecho,
+    List<DispensacaoDto> Dispensacoes,
+    DateTime? ConcluidaEm);
+
+// ---------------------------------------------------------------------------
+// Sinais vitais seriados
+// ---------------------------------------------------------------------------
+
+public sealed record RegistrarSinaisVitaisRequest
+{
+    /// <summary>
+    /// A hora da medida. Nula significa agora.
+    ///
+    /// Aceita hora passada porque em campo se mede e se anota depois; nao aceita
+    /// hora futura, que so pode ser engano de digitacao.
+    /// </summary>
+    public DateTime? MedidaEm { get; init; }
+
+    [Range(40, 300)] public int? PressaoSistolica { get; init; }
+    [Range(20, 200)] public int? PressaoDiastolica { get; init; }
+    [Range(20, 250)] public int? FrequenciaCardiaca { get; init; }
+    [Range(4, 80)] public int? FrequenciaRespiratoria { get; init; }
+    [Range(50, 100)] public int? SaturacaoO2 { get; init; }
+    [Range(28, 45)] public double? TemperaturaCelsius { get; init; }
+    [Range(10, 800)] public int? GlicemiaCapilar { get; init; }
+    [Range(0, 10)] public int? EscalaDor { get; init; }
+
+    [MaxLength(500)]
+    public string? Observacao { get; init; }
+}
+
+/// <remarks>
+/// <c>ForaDaFaixa</c> marca o que merece um segundo olhar, e nada alem disso:
+/// nao e escore nem classificacao de risco, e vem vazio para crianca, cujas
+/// frequencias normais sao mais altas que o corte de adulto.
+/// </remarks>
+public sealed record MedicaoSinaisVitaisDto(
+    Guid Id,
+    DateTime MedidaEm,
+    string RegistradaPor,
+    int? PressaoSistolica,
+    int? PressaoDiastolica,
+    int? FrequenciaCardiaca,
+    int? FrequenciaRespiratoria,
+    int? SaturacaoO2,
+    double? TemperaturaCelsius,
+    int? GlicemiaCapilar,
+    int? EscalaDor,
+    string? Observacao,
+    List<string> ForaDaFaixa);
+
+// ---------------------------------------------------------------------------
+// Cirurgia
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// A ficha cirurgica inteira: pre-operatorio, as quatro paradas da lista de
+/// verificacao e a recuperacao.
+/// </summary>
+/// <remarks>
+/// As caixas sao <c>bool</c>, e nao <c>bool?</c>: numa lista de verificacao a
+/// caixa esta marcada ou nao esta, e nao marcada ja significa "nao conferido".
+/// </remarks>
+public sealed record RegistrarCirurgiaRequest
+{
+    [MaxLength(1000)] public string? Indicacao { get; init; }
+    [MaxLength(300)] public string? ProcedimentoProposto { get; init; }
+    public Lateralidade Lateralidade { get; init; } = Lateralidade.NaoSeAplica;
+    [Range(0, 72)] public int? JejumHoras { get; init; }
+    public bool ConsentimentoAssinado { get; init; }
+    [MaxLength(2000)] public string? ObservacoesPreOperatorio { get; init; }
+
+    public bool CheckInIdentidadeConfirmada { get; init; }
+    public bool CheckInSitioMarcado { get; init; }
+    public bool CheckInConsentimentoConferido { get; init; }
+    public bool CheckInAlergiaConferida { get; init; }
+    public bool CheckInJejumConferido { get; init; }
+
+    public bool TimeOutUmEquipeApresentada { get; init; }
+    public bool TimeOutUmMonitorizacaoOk { get; init; }
+    public bool TimeOutUmViaAereaAvaliada { get; init; }
+    public bool TimeOutUmRiscoSangramentoAvaliado { get; init; }
+
+    public bool TimeOutDoisPacienteSitioProcedimentoConfirmados { get; init; }
+    public bool TimeOutDoisAntibioticoProfilatico { get; init; }
+    public bool TimeOutDoisImagensDisponiveis { get; init; }
+    public bool TimeOutDoisEventosCriticosRevistos { get; init; }
+    public bool TimeOutDoisMaterialEsterilizado { get; init; }
+
+    public bool CheckOutProcedimentoRegistrado { get; init; }
+    public bool CheckOutContagemConfere { get; init; }
+    public bool CheckOutAmostrasIdentificadas { get; init; }
+    public bool CheckOutProblemasComEquipamento { get; init; }
+    [MaxLength(1000)] public string? CheckOutCuidadosRecuperacao { get; init; }
+
+    public DateTime? RecuperacaoEntradaEm { get; init; }
+    public DateTime? RecuperacaoSaidaEm { get; init; }
+    [MaxLength(2000)] public string? Intercorrencias { get; init; }
+    [MaxLength(2000)] public string? ObservacoesRecuperacao { get; init; }
+
+    public DesfechoConsulta? Desfecho { get; init; }
+    public Especialidade? EncaminhadoPara { get; init; }
+}
+
+public sealed record CirurgiaDto(
+    Guid EtapaId,
+    AutorDto? Profissional,
+    string? Indicacao,
+    string? ProcedimentoProposto,
+    Lateralidade Lateralidade,
+    int? JejumHoras,
+    bool ConsentimentoAssinado,
+    string? ObservacoesPreOperatorio,
+    bool CheckInIdentidadeConfirmada,
+    bool CheckInSitioMarcado,
+    bool CheckInConsentimentoConferido,
+    bool CheckInAlergiaConferida,
+    bool CheckInJejumConferido,
+    /// <summary>
+    /// Quando cada parada foi concluida. Carimbada pelo sistema e nunca
+    /// reescrita: a lista so vale se as paradas tiverem acontecido de fato, e em
+    /// momentos distintos.
+    /// </summary>
+    DateTime? CheckInEm,
+    bool TimeOutUmEquipeApresentada,
+    bool TimeOutUmMonitorizacaoOk,
+    bool TimeOutUmViaAereaAvaliada,
+    bool TimeOutUmRiscoSangramentoAvaliado,
+    DateTime? TimeOutUmEm,
+    bool TimeOutDoisPacienteSitioProcedimentoConfirmados,
+    bool TimeOutDoisAntibioticoProfilatico,
+    bool TimeOutDoisImagensDisponiveis,
+    bool TimeOutDoisEventosCriticosRevistos,
+    bool TimeOutDoisMaterialEsterilizado,
+    DateTime? TimeOutDoisEm,
+    bool CheckOutProcedimentoRegistrado,
+    bool CheckOutContagemConfere,
+    bool CheckOutAmostrasIdentificadas,
+    bool CheckOutProblemasComEquipamento,
+    string? CheckOutCuidadosRecuperacao,
+    DateTime? CheckOutEm,
+    DateTime? RecuperacaoEntradaEm,
+    DateTime? RecuperacaoSaidaEm,
+    string? Intercorrencias,
+    string? ObservacoesRecuperacao,
+    DesfechoConsulta? Desfecho,
+    DateTime? ConcluidaEm);
+
+// ---------------------------------------------------------------------------
+// Ultrassom
+// ---------------------------------------------------------------------------
+
+public sealed record RegistrarUltrassomRequest
+{
+    [MaxLength(300)]
+    public string? ExameSolicitado { get; init; }
+
+    [MaxLength(1000)]
+    public string? Indicacao { get; init; }
+
+    [MaxLength(4000)]
+    public string? Analise { get; init; }
+
+    [MaxLength(2000)]
+    public string? Conclusao { get; init; }
+
+    public DesfechoConsulta? Desfecho { get; init; }
+    public Especialidade? EncaminhadoPara { get; init; }
+}
+
+/// <remarks>
+/// <c>Profissional</c> carrega o conselho e o registro porque o laudo e assinado:
+/// no papel a linha final e "Medico ___ CRM ___", e um laudo sem ela nao vale
+/// fora do sistema.
+/// </remarks>
+public sealed record UltrassomDto(
+    Guid EtapaId,
+    AutorDto? Profissional,
+    string? ExameSolicitado,
+    string? Indicacao,
+    string? Analise,
+    string? Conclusao,
+    DesfechoConsulta? Desfecho,
+    DateTime? ConcluidaEm);
+
+// ---------------------------------------------------------------------------
+// Farmacia
+// ---------------------------------------------------------------------------
+
+public sealed record RegistrarFarmaciaRequest
+{
+    [MaxLength(2000)]
+    public string? Orientacoes { get; init; }
+
+    [MaxLength(2000)]
+    public string? Observacoes { get; init; }
+
+    public DesfechoConsulta? Desfecho { get; init; }
+    public Especialidade? EncaminhadoPara { get; init; }
+
+    /// <summary>O que saiu de fato. Pode diferir do prescrito — e por isso e conferido.</summary>
+    public List<DispensacaoRequest> Dispensacoes { get; init; } = new();
+}
+
+public sealed record FarmaciaDto(
+    Guid EtapaId,
+    AutorDto? Profissional,
+    string? Orientacoes,
     string? Observacoes,
     DesfechoConsulta? Desfecho,
     List<DispensacaoDto> Dispensacoes,

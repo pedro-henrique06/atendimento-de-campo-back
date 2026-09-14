@@ -188,6 +188,58 @@ public class AtendimentosController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Acrescenta uma linha na tabela horaria de sinais vitais.</summary>
+    [HttpPost("{id:guid}/sinais-vitais")]
+    public async Task<ActionResult<MedicaoSinaisVitaisDto>> RegistrarSinaisVitais(
+        Guid id,
+        [FromBody] RegistrarSinaisVitaisRequest req,
+        CancellationToken ct)
+        => Ok(await _servico.RegistrarSinaisVitaisAsync(id, req, ProfissionalId, ct));
+
+    [HttpDelete("{id:guid}/sinais-vitais/{medicaoId:guid}")]
+    public async Task<IActionResult> RemoverSinaisVitais(
+        Guid id,
+        Guid medicaoId,
+        CancellationToken ct)
+    {
+        await _servico.RemoverSinaisVitaisAsync(id, medicaoId, ProfissionalId, ct);
+        return NoContent();
+    }
+
+    /// <summary>
+    /// A ficha cirurgica. Pode ser salva varias vezes — uma por parada da lista
+    /// de verificacao —, e so fecha a fila quando vem com desfecho.
+    /// </summary>
+    [HttpPut("{id:guid}/cirurgia")]
+    public async Task<IActionResult> RegistrarCirurgia(
+        Guid id,
+        [FromBody] RegistrarCirurgiaRequest req,
+        CancellationToken ct)
+    {
+        await _servico.RegistrarCirurgiaAsync(id, req, ProfissionalId, ct);
+        return NoContent();
+    }
+
+    [HttpPut("{id:guid}/ultrassom")]
+    public async Task<IActionResult> RegistrarUltrassom(
+        Guid id,
+        [FromBody] RegistrarUltrassomRequest req,
+        CancellationToken ct)
+    {
+        await _servico.RegistrarUltrassomAsync(id, req, ProfissionalId, ct);
+        return NoContent();
+    }
+
+    [HttpPut("{id:guid}/farmacia")]
+    public async Task<IActionResult> RegistrarFarmacia(
+        Guid id,
+        [FromBody] RegistrarFarmaciaRequest req,
+        CancellationToken ct)
+    {
+        await _servico.RegistrarFarmaciaAsync(id, req, ProfissionalId, ct);
+        return NoContent();
+    }
+
     [HttpPost("{id:guid}/finalizar")]
     public async Task<IActionResult> Finalizar(
         Guid id,
