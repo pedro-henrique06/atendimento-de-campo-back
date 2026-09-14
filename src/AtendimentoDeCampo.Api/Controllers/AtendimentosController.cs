@@ -188,6 +188,24 @@ public class AtendimentosController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Acrescenta uma linha na tabela horaria de sinais vitais.</summary>
+    [HttpPost("{id:guid}/sinais-vitais")]
+    public async Task<ActionResult<MedicaoSinaisVitaisDto>> RegistrarSinaisVitais(
+        Guid id,
+        [FromBody] RegistrarSinaisVitaisRequest req,
+        CancellationToken ct)
+        => Ok(await _servico.RegistrarSinaisVitaisAsync(id, req, ProfissionalId, ct));
+
+    [HttpDelete("{id:guid}/sinais-vitais/{medicaoId:guid}")]
+    public async Task<IActionResult> RemoverSinaisVitais(
+        Guid id,
+        Guid medicaoId,
+        CancellationToken ct)
+    {
+        await _servico.RemoverSinaisVitaisAsync(id, medicaoId, ProfissionalId, ct);
+        return NoContent();
+    }
+
     [HttpPut("{id:guid}/ultrassom")]
     public async Task<IActionResult> RegistrarUltrassom(
         Guid id,

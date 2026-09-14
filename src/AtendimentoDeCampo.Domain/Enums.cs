@@ -474,5 +474,17 @@ public enum AcaoAuditoria
     TransferiuParaHospital = 16,
 
     /// <summary>Encerrou por outro motivo, descrito no registro.</summary>
-    EncerrouPorOutroMotivo = 17
+    EncerrouPorOutroMotivo = 17,
+
+    /// <summary>Anotou mais uma medida de sinais vitais na tabela de observacao.</summary>
+    RegistrouSinaisVitais = 18,
+
+    /// <summary>
+    /// Removeu uma linha da tabela de sinais vitais.
+    ///
+    /// Acao propria porque apagar medida de paciente em observacao e o tipo de
+    /// coisa que alguem vai querer explicar depois — no papel a linha errada e
+    /// riscada, e continua la.
+    /// </summary>
+    RemoveuSinaisVitais = 19
 }

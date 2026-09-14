@@ -29,6 +29,7 @@ public class AtendimentoDbContext : DbContext
     public DbSet<Dispensacao> Dispensacoes => Set<Dispensacao>();
     public DbSet<Cid10> Cid10s => Set<Cid10>();
     public DbSet<PassagemFila> PassagensFila => Set<PassagemFila>();
+    public DbSet<MedicaoSinaisVitais> SinaisVitais => Set<MedicaoSinaisVitais>();
     public DbSet<Auditoria> Auditorias => Set<Auditoria>();
 
     protected override void OnModelCreating(ModelBuilder b)
@@ -442,6 +443,27 @@ public class AtendimentoDbContext : DbContext
 
             // O relatorio de producao le por profissional e por periodo.
             e.HasIndex(x => new { x.ProfissionalId, x.ConcluidaEm });
+        });
+
+        b.Entity<MedicaoSinaisVitais>(e =>
+        {
+            e.ToTable("sinais_vitais");
+            e.Property(x => x.Observacao).HasMaxLength(500);
+
+            e.HasOne(x => x.Atendimento)
+                .WithMany(x => x.SinaisVitais)
+                .HasForeignKey(x => x.AtendimentoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Restrict: apagar um profissional nao pode levar junto a medida que
+            // ele anotou de um paciente.
+            e.HasOne(x => x.RegistradaPor)
+                .WithMany()
+                .HasForeignKey(x => x.RegistradaPorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // A tabela e sempre lida inteira e em ordem de hora.
+            e.HasIndex(x => new { x.AtendimentoId, x.MedidaEm });
         });
 
         b.Entity<Auditoria>(e =>

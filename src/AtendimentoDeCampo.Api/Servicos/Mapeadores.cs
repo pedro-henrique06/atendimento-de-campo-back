@@ -153,6 +153,10 @@ public static class Mapeadores
             enfEtapa?.Enfermagem is null ? null : ParaEnfermagemDto(enfEtapa),
             usgEtapa?.Ultrassom is null ? null : ParaUltrassomDto(usgEtapa),
             farmaciaEtapa?.Farmacia is null ? null : ParaFarmaciaDto(farmaciaEtapa),
+            a.SinaisVitais
+                .OrderBy(m => m.MedidaEm)
+                .Select(m => ParaSinaisVitaisDto(m, idade))
+                .ToList(),
             tempos,
             historico,
             etapas.Select(e => ParaEtapaResumo(e, a)).ToList());
@@ -261,6 +265,43 @@ public static class Mapeadores
             ginecologia,
             etapa.Dispensacoes.Select(ParaDispensacaoDto).ToList(),
             etapa.ConcluidaEm);
+    }
+
+    /// <param name="idadeDoPaciente">
+    /// Decide se a marcacao de fora da faixa pode ser lida: o corte e de adulto.
+    /// Vem por parametro pela mesma razao da triagem — depender da navegacao
+    /// inversa numa consulta sem rastreamento devolve nulo sem ninguem perceber.
+    /// </param>
+    public static MedicaoSinaisVitaisDto ParaSinaisVitaisDto(MedicaoSinaisVitais m, int? idadeDoPaciente)
+    {
+        var fora = FaixasDeSinaisVitais.Avaliar(
+            idadeDoPaciente,
+            m.PressaoSistolica,
+            m.FrequenciaCardiaca,
+            m.FrequenciaRespiratoria,
+            m.SaturacaoO2,
+            m.TemperaturaCelsius,
+            m.GlicemiaCapilar);
+
+        var marcados = Enum.GetValues<SinalForaDaFaixa>()
+            .Where(s => s != SinalForaDaFaixa.Nenhum && fora.HasFlag(s))
+            .Select(s => s.ToString())
+            .ToList();
+
+        return new MedicaoSinaisVitaisDto(
+            m.Id,
+            m.MedidaEm,
+            m.RegistradaPor?.Nome ?? "-",
+            m.PressaoSistolica,
+            m.PressaoDiastolica,
+            m.FrequenciaCardiaca,
+            m.FrequenciaRespiratoria,
+            m.SaturacaoO2,
+            m.TemperaturaCelsius,
+            m.GlicemiaCapilar,
+            m.EscalaDor,
+            m.Observacao,
+            marcados);
     }
 
     private static UltrassomDto ParaUltrassomDto(Etapa etapa)

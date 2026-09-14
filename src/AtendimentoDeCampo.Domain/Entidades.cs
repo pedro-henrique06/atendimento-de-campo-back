@@ -252,7 +252,54 @@ public class Atendimento
 
     public ICollection<Etapa> Etapas { get; set; } = new List<Etapa>();
     public ICollection<PassagemFila> PassagensFila { get; set; } = new List<PassagemFila>();
+    public ICollection<MedicaoSinaisVitais> SinaisVitais { get; set; } = new List<MedicaoSinaisVitais>();
     public ICollection<Auditoria> Auditorias { get; set; } = new List<Auditoria>();
+}
+
+/// <summary>
+/// Uma linha da tabela horaria de sinais vitais — a folha de observacao.
+///
+/// Pendurada no atendimento, e nao numa <see cref="Etapa"/>, porque a tabela e
+/// uma so por paciente: em observacao quem mede e quem esta por perto, e a
+/// pergunta que ela responde — "a pressao esta caindo?" — so tem resposta se as
+/// medidas estiverem na mesma lista, em ordem. Presa a uma fila, cada fila teria
+/// a sua tabela e a tendencia desapareceria entre elas.
+///
+/// Nao substitui os sinais da <see cref="Triagem"/>: aquela e a medida de
+/// entrada, que classifica o risco. Esta e o acompanhamento do que veio depois.
+/// </summary>
+public class MedicaoSinaisVitais
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public Guid AtendimentoId { get; set; }
+    public Atendimento? Atendimento { get; set; }
+
+    /// <summary>
+    /// A hora da medida.
+    ///
+    /// Separada de <see cref="CriadaEm"/> de proposito: em campo se mede agora e
+    /// se anota quando da, e uma tabela horaria que ordena pelo momento da
+    /// digitacao mostra a evolucao fora de ordem.
+    /// </summary>
+    public DateTime MedidaEm { get; set; }
+
+    public Guid RegistradaPorId { get; set; }
+    public Profissional? RegistradaPor { get; set; }
+
+    public int? PressaoSistolica { get; set; }
+    public int? PressaoDiastolica { get; set; }
+    public int? FrequenciaCardiaca { get; set; }
+    public int? FrequenciaRespiratoria { get; set; }
+    public int? SaturacaoO2 { get; set; }
+    public double? TemperaturaCelsius { get; set; }
+    public int? GlicemiaCapilar { get; set; }
+
+    /// <summary>Dor de 0 a 10. De 0, porque "sem dor" e resposta.</summary>
+    public int? EscalaDor { get; set; }
+
+    public string? Observacao { get; set; }
+
+    public DateTime CriadaEm { get; set; } = DateTime.UtcNow;
 }
 
 /// <summary>

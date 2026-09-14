@@ -676,6 +676,107 @@ public sealed class ServicoAtendimento
     }
 
     // -----------------------------------------------------------------------
+    // Sinais vitais seriados
+    // -----------------------------------------------------------------------
+
+    public async Task<MedicaoSinaisVitaisDto> RegistrarSinaisVitaisAsync(
+        Guid atendimentoId,
+        RegistrarSinaisVitaisRequest req,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarAsync(atendimentoId, ct);
+
+        var vazia = req.PressaoSistolica is null
+            && req.PressaoDiastolica is null
+            && req.FrequenciaCardiaca is null
+            && req.FrequenciaRespiratoria is null
+            && req.SaturacaoO2 is null
+            && req.TemperaturaCelsius is null
+            && req.GlicemiaCapilar is null
+            && req.EscalaDor is null;
+
+        // Linha em branco nao e medida: entra na tabela, empurra as outras para
+        // baixo e nao responde nada.
+        if (vazia)
+        {
+            throw new RegraDeNegocioException("Informe ao menos uma medida.");
+        }
+
+        var agora = DateTime.UtcNow;
+        var medidaEm = req.MedidaEm?.ToUniversalTime() ?? agora;
+
+        // Hora futura so pode ser engano de digitacao, e ela reordenaria a
+        // tabela inteira — que existe justamente para mostrar a evolucao.
+        if (medidaEm > agora.AddMinutes(5))
+        {
+            throw new RegraDeNegocioException("A hora da medida nao pode estar no futuro.");
+        }
+
+        var medicao = new MedicaoSinaisVitais
+        {
+            AtendimentoId = atendimentoId,
+            MedidaEm = medidaEm,
+            RegistradaPorId = profissionalId,
+            PressaoSistolica = req.PressaoSistolica,
+            PressaoDiastolica = req.PressaoDiastolica,
+            FrequenciaCardiaca = req.FrequenciaCardiaca,
+            FrequenciaRespiratoria = req.FrequenciaRespiratoria,
+            SaturacaoO2 = req.SaturacaoO2,
+            TemperaturaCelsius = req.TemperaturaCelsius,
+            GlicemiaCapilar = req.GlicemiaCapilar,
+            EscalaDor = req.EscalaDor,
+            Observacao = req.Observacao?.Trim()
+        };
+
+        _db.SinaisVitais.Add(medicao);
+
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.RegistrouSinaisVitais, null, ct);
+
+        atendimento.AtualizadoEm = agora;
+        await _db.SaveChangesAsync(ct);
+
+        var quem = await _db.Profissionais
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == profissionalId, ct);
+
+        medicao.RegistradaPor = quem;
+
+        var idade = CalculadoraIdade.Calcular(
+            atendimento.Paciente?.DataNascimento, atendimento.Paciente?.IdadeAproximada);
+
+        return Mapeadores.ParaSinaisVitaisDto(medicao, idade);
+    }
+
+    public async Task RemoverSinaisVitaisAsync(
+        Guid atendimentoId,
+        Guid medicaoId,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        var atendimento = await CarregarAsync(atendimentoId, ct);
+
+        var medicao = await _db.SinaisVitais
+            .FirstOrDefaultAsync(m => m.Id == medicaoId && m.AtendimentoId == atendimentoId, ct);
+
+        if (medicao is null)
+        {
+            throw new RegraDeNegocioException("Medida nao encontrada neste atendimento.");
+        }
+
+        _db.SinaisVitais.Remove(medicao);
+
+        // A acao propria e o que sobra da linha: apagada a medida, o historico
+        // ainda diz quem apagou e quando, como a linha riscada no papel.
+        await _auditoria.RegistrarAsync(
+            atendimentoId, profissionalId, AcaoAuditoria.RemoveuSinaisVitais, null, ct);
+
+        atendimento.AtualizadoEm = DateTime.UtcNow;
+        await _db.SaveChangesAsync(ct);
+    }
+
+    // -----------------------------------------------------------------------
     // Ultrassom
     // -----------------------------------------------------------------------
 
@@ -1414,6 +1515,7 @@ public sealed class ServicoAtendimento
             .Include(a => a.CriadoPor)
             .Include(a => a.FinalizadoPor)
             .Include(a => a.PassagensFila).ThenInclude(p => p.EncaminhadaPor)
+            .Include(a => a.SinaisVitais).ThenInclude(m => m.RegistradaPor)
             .Include(a => a.Auditorias).ThenInclude(x => x.Profissional)
             .Include(a => a.Etapas).ThenInclude(e => e.Profissional)
             .Include(a => a.Etapas).ThenInclude(e => e.Triagem)

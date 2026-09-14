@@ -458,6 +458,8 @@ public sealed record ProntuarioDto(
     EnfermagemDto? Enfermagem,
     UltrassomDto? Ultrassom,
     FarmaciaDto? Farmacia,
+    /// <summary>A folha de observacao, em ordem de hora.</summary>
+    List<MedicaoSinaisVitaisDto> SinaisVitais,
     List<EsperaFilaDto> TempoNasFilas,
     List<AuditoriaDto> Historico,
     /// <summary>
@@ -783,6 +785,53 @@ public sealed record EnfermagemDto(
     DesfechoConsulta? Desfecho,
     List<DispensacaoDto> Dispensacoes,
     DateTime? ConcluidaEm);
+
+// ---------------------------------------------------------------------------
+// Sinais vitais seriados
+// ---------------------------------------------------------------------------
+
+public sealed record RegistrarSinaisVitaisRequest
+{
+    /// <summary>
+    /// A hora da medida. Nula significa agora.
+    ///
+    /// Aceita hora passada porque em campo se mede e se anota depois; nao aceita
+    /// hora futura, que so pode ser engano de digitacao.
+    /// </summary>
+    public DateTime? MedidaEm { get; init; }
+
+    [Range(40, 300)] public int? PressaoSistolica { get; init; }
+    [Range(20, 200)] public int? PressaoDiastolica { get; init; }
+    [Range(20, 250)] public int? FrequenciaCardiaca { get; init; }
+    [Range(4, 80)] public int? FrequenciaRespiratoria { get; init; }
+    [Range(50, 100)] public int? SaturacaoO2 { get; init; }
+    [Range(28, 45)] public double? TemperaturaCelsius { get; init; }
+    [Range(10, 800)] public int? GlicemiaCapilar { get; init; }
+    [Range(0, 10)] public int? EscalaDor { get; init; }
+
+    [MaxLength(500)]
+    public string? Observacao { get; init; }
+}
+
+/// <remarks>
+/// <c>ForaDaFaixa</c> marca o que merece um segundo olhar, e nada alem disso:
+/// nao e escore nem classificacao de risco, e vem vazio para crianca, cujas
+/// frequencias normais sao mais altas que o corte de adulto.
+/// </remarks>
+public sealed record MedicaoSinaisVitaisDto(
+    Guid Id,
+    DateTime MedidaEm,
+    string RegistradaPor,
+    int? PressaoSistolica,
+    int? PressaoDiastolica,
+    int? FrequenciaCardiaca,
+    int? FrequenciaRespiratoria,
+    int? SaturacaoO2,
+    double? TemperaturaCelsius,
+    int? GlicemiaCapilar,
+    int? EscalaDor,
+    string? Observacao,
+    List<string> ForaDaFaixa);
 
 // ---------------------------------------------------------------------------
 // Ultrassom
