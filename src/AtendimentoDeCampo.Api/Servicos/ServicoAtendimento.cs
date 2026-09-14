@@ -89,6 +89,10 @@ public sealed class ServicoAtendimento
         {
             Codigo = codigo,
             BaseId = basePonto.Id,
+
+            // Copiado agora: mudar o tipo da base depois nao pode reescrever em
+            // que operacao este atendimento aconteceu.
+            TipoMissao = basePonto.TipoMissao,
             PacienteId = paciente.Id,
             Status = StatusAtendimento.Aberto,
             QueixaPrincipal = req.QueixaPrincipal,

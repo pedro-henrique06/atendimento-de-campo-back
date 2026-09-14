@@ -135,8 +135,11 @@ public static class Mapeadores
         return new ProntuarioDto(
             a.Id,
             a.Codigo,
-            new BaseDto(a.Base!.Id, a.Base.Nome, a.Base.PrefixoCodigo, a.Base.Ativa),
+            new BaseDto(a.Base!.Id, a.Base.Nome, a.Base.PrefixoCodigo, a.Base.Ativa, a.Base.TipoMissao),
             ParaDto(a.Paciente!),
+            // O tipo do atendimento, e nao o da base agora: a base pode ter
+            // mudado de operacao desde entao.
+            a.TipoMissao,
             a.Status,
             a.ClassificacaoRisco,
             a.QueixaPrincipal,

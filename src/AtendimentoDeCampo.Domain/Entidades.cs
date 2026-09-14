@@ -9,6 +9,16 @@ public class Base
     /// <summary>Prefixo de 3 caracteres usado nos codigos de atendimento desta base.</summary>
     public string PrefixoCodigo { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Em que tipo de operacao esta base esta trabalhando agora.
+    ///
+    /// Anulavel, e nao "Programada" por padrao: as bases criadas antes deste
+    /// campo existir nao tem de onde deduzir o tipo, e preencher todas com um
+    /// deles inventaria dado — inclusive chamando de missao programada uma base
+    /// montada numa enchente.
+    /// </summary>
+    public TipoMissao? TipoMissao { get; set; }
+
     public bool Ativa { get; set; } = true;
     public DateTime CriadaEm { get; set; } = DateTime.UtcNow;
 
@@ -211,6 +221,18 @@ public class Atendimento
 
     public Guid PacienteId { get; set; }
     public Paciente? Paciente { get; set; }
+
+    /// <summary>
+    /// O tipo de operacao em que este atendimento aconteceu, copiado da base na
+    /// abertura.
+    ///
+    /// Copiado, e nao lido da base na hora de mostrar: a mesma escola vira base
+    /// de missao programada em marco e de enchente em novembro, e a coordenacao
+    /// mudar o tipo da base reescreveria o passado — a contagem de atendimentos
+    /// em catastrofe passaria a incluir os da missao programada anterior. E o
+    /// mesmo motivo pelo qual o prefixo trava depois do primeiro atendimento.
+    /// </summary>
+    public TipoMissao? TipoMissao { get; set; }
 
     public StatusAtendimento Status { get; set; } = StatusAtendimento.Aberto;
 

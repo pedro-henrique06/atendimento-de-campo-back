@@ -57,6 +57,20 @@ public enum FuncaoProfissional
     Ultrassonografista = 17
 }
 
+/// <summary>
+/// O tipo de operacao em que a base esta trabalhando.
+///
+/// Sao dois formularios de papel diferentes, e duas operacoes diferentes: na
+/// programada a equipe vai a uma comunidade combinada, com agenda e
+/// especialidades arranjadas de antemao; na catastrofe ela monta base onde deu,
+/// e a triagem e o que manda.
+/// </summary>
+public enum TipoMissao
+{
+    Programada = 0,
+    Catastrofe = 1
+}
+
 public enum ConselhoTipo
 {
     Nenhum = 0,

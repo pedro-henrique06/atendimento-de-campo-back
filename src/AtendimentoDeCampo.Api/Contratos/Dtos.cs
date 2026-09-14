@@ -125,7 +125,13 @@ public sealed record UsuarioDisponivelResponse(string Usuario, bool Disponivel);
 // Bases
 // ---------------------------------------------------------------------------
 
-public sealed record BaseDto(Guid Id, string Nome, string PrefixoCodigo, bool Ativa);
+public sealed record BaseDto(
+    Guid Id,
+    string Nome,
+    string PrefixoCodigo,
+    bool Ativa,
+    /// <summary>Nulo nas bases criadas antes do campo existir.</summary>
+    TipoMissao? TipoMissao);
 
 /// <summary>
 /// A base como a coordenacao a ve: com o que ela precisa para decidir. O total
@@ -136,6 +142,7 @@ public sealed record BaseAdminDto(
     Guid Id,
     string Nome,
     string PrefixoCodigo,
+    TipoMissao? TipoMissao,
     bool Ativa,
     DateTime CriadaEm,
     int TotalAtendimentos,
@@ -150,6 +157,12 @@ public sealed record SalvarBaseRequest
     /// <summary>Vazio deriva do nome, que e o que a tela ja sugere.</summary>
     [MaxLength(3)]
     public string? PrefixoCodigo { get; init; }
+
+    /// <summary>
+    /// Nulo mantem o que esta gravado — inclusive "nao informado", nas bases
+    /// anteriores ao campo.
+    /// </summary>
+    public TipoMissao? TipoMissao { get; init; }
 }
 
 public sealed record DefinirAtivaRequest
@@ -440,6 +453,11 @@ public sealed record ProntuarioDto(
     string Codigo,
     BaseDto Base,
     PacienteDto Paciente,
+    /// <summary>
+    /// Em que operacao este atendimento aconteceu, copiado da base na abertura.
+    /// Nulo nos anteriores ao campo e nos abertos em base sem tipo informado.
+    /// </summary>
+    TipoMissao? TipoMissao,
     StatusAtendimento Status,
     ClassificacaoRisco? ClassificacaoRisco,
     string? QueixaPrincipal,
