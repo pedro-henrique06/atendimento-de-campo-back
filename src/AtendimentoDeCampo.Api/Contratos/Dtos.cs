@@ -416,7 +416,20 @@ public sealed record EtapaResumoDto(
     /// <summary>Quem encaminhou o paciente para esta fila, se veio de outra.</summary>
     string? EncaminhadaPor = null,
     /// <summary>De qual fila veio: o destino do botao de devolver.</summary>
-    Especialidade? EncaminhadaDe = null);
+    Especialidade? EncaminhadaDe = null,
+    /// <summary>
+    /// Quando o paciente entrou nesta fila.
+    /// </summary>
+    /// <remarks>
+    /// E o comeco da espera, e o par de <see cref="AssumidaEm"/>, que e o comeco
+    /// do atendimento. A lista mostrava so o segundo: dava para ver ha quanto
+    /// tempo alguem estava sendo atendido, e nao ha quanto tempo os outros
+    /// estavam esperando — que e o numero que decide quem passa na frente.
+    ///
+    /// Vem da passagem, como os outros dois, e nao da etapa: o paciente pode
+    /// passar duas vezes pela mesma fila, e a etapa e uma so.
+    /// </remarks>
+    DateTime? EntrouNaFilaEm = null);
 
 public sealed record AtendimentoResumoDto(
     Guid Id,
