@@ -22,8 +22,14 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports:
           - 5432:5432
+        # Com o usuário: sem ele o `pg_isready` do health check tenta o usuário
+        # do runner, e o Postgres registra um `FATAL: role "root" does not
+        # exist` a cada dez segundos. A sonda passa assim mesmo — ela só quer
+        # saber se o servidor responde —, mas o log do serviço fica cheio de
+        # FATAL que não são erro nenhum, e é nele que alguém vai procurar
+        # quando houver um de verdade.
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
