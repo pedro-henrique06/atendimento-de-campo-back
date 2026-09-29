@@ -67,7 +67,8 @@ public static class Mapeadores
             e.ConcluidaEm,
             passagem?.AssumidaEm,
             passagem?.EncaminhadaPor?.Nome,
-            passagem?.EncaminhadaDe);
+            passagem?.EncaminhadaDe,
+            passagem?.EntrouEm);
     }
 
     public static AtendimentoResumoDto ParaResumo(Atendimento a)
