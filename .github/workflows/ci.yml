@@ -1,0 +1,63 @@
+# Verificação a cada push e a cada pull request.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verificar:
+    name: Build e testes
+    runs-on: ubuntu-latest
+
+    # Os testes são de integração: sobem a API inteira com WebApplicationFactory
+    # e falam com um Postgres de verdade. Sem banco eles não falham — eles
+    # PULAM, porque cada um começa com `Skip.IfNot(BancoDisponivel)`. Uma suíte
+    # que pula tudo passa verde sem ter testado nada, que é pior que não ter CI.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        # Com o usuário: sem ele o `pg_isready` do health check tenta o usuário
+        # do runner, e o Postgres registra um `FATAL: role "root" does not
+        # exist` a cada dez segundos. A sonda passa assim mesmo — ela só quer
+        # saber se o servidor responde —, mas o log do serviço fica cheio de
+        # FATAL que não são erro nenhum, e é nele que alguém vai procurar
+        # quando houver um de verdade.
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      ATENDIMENTO_TEST_DB: Host=localhost;Port=5432;Database=atendimento_testes;Username=postgres;Password=postgres
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # Explícito, e não confiando só no health check do serviço: se o banco não
+      # estiver de pé, é aqui que o job para — em vez de seguir e devolver 350
+      # testes pulados com o check verde.
+      - name: Conferir que o banco de teste responde
+        run: |
+          pg_isready -h localhost -p 5432 -U postgres
+          PGPASSWORD=postgres createdb -h localhost -U postgres atendimento_testes
+
+      - name: Restaurar
+        run: dotnet restore
+
+      - name: Compilar
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Rodar os testes
+        run: dotnet test --no-build --configuration Release
