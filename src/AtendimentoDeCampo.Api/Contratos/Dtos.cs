@@ -738,6 +738,22 @@ public sealed record ConsultaDto(
     Especialidade? EncaminhadoPara,
     OrtopediaRequest? Ortopedia,
     GinecologiaRequest? Ginecologia,
+    /// <summary>
+    /// Os dois blocos da ficha de saude mental.
+    /// </summary>
+    /// <remarks>
+    /// CORRIGE: eram gravados e nunca devolvidos. O pedido os aceitava, a
+    /// entidade os guardava e o DTO de leitura nao os tinha — entao os sintomas
+    /// e as perdas vivenciadas entravam no banco e nao voltavam para o
+    /// prontuario de ninguem. Sobrevivia so o diff da auditoria, que serve para
+    /// saber o que mudou, e nao para ler a ficha.
+    ///
+    /// "Perdas vivenciadas" e pergunta do formulario de catastrofe: casa,
+    /// familiar, documentos. E o dado que orienta o acompanhamento, e e
+    /// exatamente o que estava sumindo.
+    /// </remarks>
+    List<SintomaSaudeMental> SintomasSaudeMental,
+    List<PerdaVivenciada> PerdasVivenciadas,
     List<DispensacaoDto> Dispensacoes,
     DateTime? ConcluidaEm);
 

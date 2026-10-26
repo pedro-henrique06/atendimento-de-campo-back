@@ -107,13 +107,37 @@ public static class ValidadorDispensacao
             yield return $"Item '{item.Nome}' esta inativo no catalogo.";
         }
 
+        /*
+            Item sem via no catalogo nao tem via: gaze, atadura e ortese se
+            entregam, nao se administram.
+
+            CORRIGE: a via era exigida de todo item do catalogo, e a lista de
+            vias permitidas so era conferida quando existia. O resultado era o
+            pior dos dois lados — gaze esteril nao podia ser dispensada de forma
+            nenhuma, e quem contornasse escolhendo qualquer via passava, porque
+            a checagem de compatibilidade nao rodava com a lista vazia. Ou seja,
+            "Gaze esteril - Oral" era aceito, que e exatamente o tipo de
+            registro que este validador existe para impedir.
+        */
+        if (item.ViasPermitidas.Count == 0)
+        {
+            if (entrada.Via is not null)
+            {
+                yield return
+                    $"'{item.Nome}' ({item.Forma}) nao tem via de administracao: " +
+                    "e material de entrega, nao medicamento.";
+            }
+
+            yield break;
+        }
+
         if (entrada.Via is null)
         {
             yield return "Informe a via de administracao.";
             yield break;
         }
 
-        if (item.ViasPermitidas.Count > 0 && !item.ViasPermitidas.Contains(entrada.Via.Value))
+        if (!item.ViasPermitidas.Contains(entrada.Via.Value))
         {
             var permitidas = string.Join(", ", item.ViasPermitidas);
             yield return

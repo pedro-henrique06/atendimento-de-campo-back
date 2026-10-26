@@ -269,6 +269,8 @@ public static class Mapeadores
             c.EncaminhadoPara,
             ortopedia,
             ginecologia,
+            c.SintomasSaudeMental,
+            c.PerdasVivenciadas,
             etapa.Dispensacoes.Select(ParaDispensacaoDto).ToList(),
             etapa.ConcluidaEm);
     }
