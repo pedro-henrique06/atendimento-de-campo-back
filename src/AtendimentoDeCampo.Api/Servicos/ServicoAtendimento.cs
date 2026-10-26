@@ -716,6 +716,23 @@ public sealed class ServicoAtendimento
         cirurgia.ConsentimentoAssinado = req.ConsentimentoAssinado;
         cirurgia.ObservacoesPreOperatorio = req.ObservacoesPreOperatorio;
 
+        cirurgia.PreparoCuidadosEnfermagem = req.PreparoCuidadosEnfermagem;
+        cirurgia.PreparoTricotomia = req.PreparoTricotomia;
+        cirurgia.PreparoTricotomiaLocal = req.PreparoTricotomiaLocal;
+        cirurgia.PreparoBanhoClorexidine = req.PreparoBanhoClorexidine;
+        cirurgia.PreparoPulseiraIdentificacao = req.PreparoPulseiraIdentificacao;
+
+        cirurgia.PreOpEcg = req.PreOpEcg;
+        cirurgia.PreOpLaboratorial = req.PreOpLaboratorial;
+        cirurgia.PreOpUltrassom = req.PreOpUltrassom;
+        cirurgia.PreOpExamesObservacao = req.PreOpExamesObservacao;
+        cirurgia.PreOpAvaliacaoAnestesica = req.PreOpAvaliacaoAnestesica;
+
+        cirurgia.PertencesProteseDentaria = req.PertencesProteseDentaria;
+        cirurgia.PertencesRoupasAcessorios = req.PertencesRoupasAcessorios;
+        cirurgia.PertencesDestino = req.PertencesDestino;
+        cirurgia.EncaminhadoAoCentroEm = req.EncaminhadoAoCentroEm?.ToUniversalTime();
+
         cirurgia.CheckInIdentidadeConfirmada = req.CheckInIdentidadeConfirmada;
         cirurgia.CheckInSitioMarcado = req.CheckInSitioMarcado;
         cirurgia.CheckInConsentimentoConferido = req.CheckInConsentimentoConferido;
@@ -743,6 +760,8 @@ public sealed class ServicoAtendimento
         cirurgia.RecuperacaoSaidaEm = req.RecuperacaoSaidaEm?.ToUniversalTime();
         cirurgia.Intercorrencias = req.Intercorrencias;
         cirurgia.ObservacoesRecuperacao = req.ObservacoesRecuperacao;
+        cirurgia.PertencesDevolvidos = req.PertencesDevolvidos;
+        cirurgia.RecuperacaoDieta = req.RecuperacaoDieta;
 
         cirurgia.Desfecho = req.Desfecho;
 
@@ -1371,7 +1390,16 @@ public sealed class ServicoAtendimento
 
         var atendimento = await CarregarAsync(atendimentoId, ct);
 
-        if (atendimento.FinalizadoEm is not null)
+        /*
+            O status e o que trava, e nao a hora da finalizacao.
+
+            CORRIGE: isto lia `FinalizadoEm`, que `ReabrirAsync` deliberadamente
+            NAO limpa — e por ela que a auditoria sabe marcar a correcao como
+            feita depois do fecho. O efeito era que reabrir nao reabria nada:
+            encaminhar continuava recusado, com a mensagem mandando reabrir um
+            atendimento que acabara de ser reaberto.
+        */
+        if (atendimento.Status == StatusAtendimento.Finalizado)
         {
             throw new RegraDeNegocioException(
                 "Este atendimento ja foi finalizado. Reabra antes de encaminhar.");
@@ -1395,11 +1423,33 @@ public sealed class ServicoAtendimento
             inflaria a producao da especialidade com atendimentos que nao
             existiram — e producao por area e justamente o numero que este
             sistema precisa manter confiavel.
+
+            CORRIGE: isto lia as navegacoes da etapa, que `CarregarAsync` nao
+            carrega e nao ha lazy loading — ou seja, vinha falso sempre. E a
+            lista olhava quatro fichas, de quando so existiam quatro. Com a
+            ficha cirurgica, que fica aberta entre as quatro paradas da lista de
+            verificacao, a conta passou a importar de verdade: o cirurgiao que
+            operava e mandava o paciente para a enfermagem ver o pos-operatorio
+            tinha a cirurgia marcada como CANCELADA e a passagem fechada sem
+            profissional — a operacao inteira desaparecia da producao, e o
+            prontuario dizia que a fila da cirurgia tinha sido cancelada.
+
+            A pergunta e uma so e vale para as sete fichas: existe registro
+            clinico nesta etapa? Um EXISTS responde sem arrastar sete Includes
+            para todas as outras chamadas de `CarregarAsync`.
         */
-        var houveAtendimento = etapa.Triagem is not null
-            || etapa.Consulta is not null
-            || etapa.Odontologia is not null
-            || etapa.Enfermagem is not null;
+        var houveAtendimento = await _db.Etapas
+            .AsNoTracking()
+            .Where(e => e.Id == etapa.Id)
+            .AnyAsync(
+                e => e.Triagem != null
+                    || e.Consulta != null
+                    || e.Odontologia != null
+                    || e.Enfermagem != null
+                    || e.Ultrassom != null
+                    || e.Farmacia != null
+                    || e.Cirurgia != null,
+                ct);
 
         etapa.Status = houveAtendimento ? StatusEtapa.Concluida : StatusEtapa.Cancelada;
         etapa.ConcluidaEm = DateTime.UtcNow;
@@ -1456,7 +1506,8 @@ public sealed class ServicoAtendimento
 
         var atendimento = await CarregarAsync(atendimentoId, ct);
 
-        if (atendimento.FinalizadoEm is not null)
+        // Pelo status, e nao pela hora do fecho: ver `EncaminharAsync`.
+        if (atendimento.Status == StatusAtendimento.Finalizado)
         {
             throw new RegraDeNegocioException(
                 "Este atendimento ja foi finalizado. Reabra antes de devolver.");
@@ -1550,7 +1601,10 @@ public sealed class ServicoAtendimento
 
         var atendimento = await CarregarAsync(atendimentoId, ct);
 
-        if (atendimento.FinalizadoEm is not null)
+        // Pelo status, e nao pela hora do fecho: ver `EncaminharAsync`. Sem isto
+        // um atendimento reaberto para corrigir o desfecho nunca podia ser
+        // fechado de novo com desfecho nenhum.
+        if (atendimento.Status == StatusAtendimento.Finalizado)
         {
             throw new RegraDeNegocioException("Atendimento ja esta finalizado.");
         }
@@ -2025,6 +2079,28 @@ public sealed class ServicoAtendimento
         ["cirurgia.jejumHoras"] = c.JejumHoras?.ToString(),
         ["cirurgia.consentimento"] = Booleano(c.ConsentimentoAssinado),
         ["cirurgia.observacoesPreOperatorio"] = c.ObservacoesPreOperatorio,
+
+        // O preparo da enfermagem segue a regra das paradas: o conjunto do que
+        // foi feito numa linha so. Caixa a caixa, uma cirurgia encheria o
+        // historico e a alteracao que importa se perderia no meio.
+        ["cirurgia.preparoEnfermagem"] = Conferidos(
+            (c.PreparoTricotomia, "tricotomia"),
+            (c.PreparoBanhoClorexidine, "banhoClorexidine"),
+            (c.PreparoPulseiraIdentificacao, "pulseira")),
+        ["cirurgia.preparoCuidados"] = c.PreparoCuidadosEnfermagem,
+        ["cirurgia.tricotomiaLocal"] = c.PreparoTricotomiaLocal,
+        ["cirurgia.examesPreOperatorios"] = Conferidos(
+            (c.PreOpEcg, "ecg"),
+            (c.PreOpLaboratorial, "laboratorial"),
+            (c.PreOpUltrassom, "ultrassom"),
+            (c.PreOpAvaliacaoAnestesica, "avaliacaoAnestesica")),
+        ["cirurgia.examesObservacao"] = c.PreOpExamesObservacao,
+        ["cirurgia.pertencesRetirados"] = Conferidos(
+            (c.PertencesProteseDentaria, "proteseDentaria"),
+            (c.PertencesRoupasAcessorios, "roupasAcessorios")),
+        ["cirurgia.pertencesDestino"] = c.PertencesDestino,
+        ["cirurgia.pertencesDevolvidos"] = Booleano(c.PertencesDevolvidos),
+        ["cirurgia.dieta"] = c.RecuperacaoDieta,
 
         // As paradas entram como o conjunto do que foi conferido, e nao caixa a
         // caixa: campo a campo, uma cirurgia encheria o historico com vinte

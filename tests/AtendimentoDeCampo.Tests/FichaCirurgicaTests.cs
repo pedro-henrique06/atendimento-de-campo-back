@@ -240,4 +240,93 @@ public class FichaCirurgicaTests
 
         Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
     }
+
+    [SkippableFact]
+    public async Task O_preparo_de_enfermagem_volta_inteiro_no_prontuario()
+    {
+        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
+
+        var client = await CirurgiaoAsync("cirurgia.preparo");
+        var atendimento = await AbrirAsync(client, "Paciente Do Preparo");
+
+        var saida = DateTime.UtcNow.AddMinutes(-30);
+
+        (await SalvarAsync(client, atendimento.Id, new
+        {
+            indicacao = "Hernia inguinal direita.",
+            preparoCuidadosEnfermagem = "Jejum conferido com o acompanhante. Acesso em MSE.",
+            preparoTricotomia = true,
+            preparoTricotomiaLocal = "Inguinal direita",
+            preparoBanhoClorexidine = true,
+            preparoPulseiraIdentificacao = true,
+            preOpEcg = true,
+            preOpLaboratorial = true,
+            preOpUltrassom = false,
+            preOpExamesObservacao = "Hemograma e coagulograma de ontem.",
+            preOpAvaliacaoAnestesica = true,
+            pertencesProteseDentaria = true,
+            pertencesRoupasAcessorios = true,
+            pertencesDestino = "Entregues a Dona Nair, irma, no armario 3.",
+            encaminhadoAoCentroEm = saida
+        })).EnsureSuccessStatusCode();
+
+        var c = (await LerAsync(client, atendimento.Id)).Cirurgia!;
+
+        // O local da tricotomia e campo proprio: tricotomia no lugar errado e
+        // incidente, e o lugar precisa ser conferivel sem ler um paragrafo.
+        Assert.True(c.PreparoTricotomia);
+        Assert.Equal("Inguinal direita", c.PreparoTricotomiaLocal);
+
+        Assert.True(c.PreparoBanhoClorexidine);
+        Assert.True(c.PreparoPulseiraIdentificacao);
+        Assert.True(c.PreOpEcg);
+        Assert.True(c.PreOpLaboratorial);
+        Assert.False(c.PreOpUltrassom);
+        Assert.True(c.PreOpAvaliacaoAnestesica);
+        Assert.Equal("Hemograma e coagulograma de ontem.", c.PreOpExamesObservacao);
+
+        Assert.True(c.PertencesProteseDentaria);
+        Assert.Equal("Entregues a Dona Nair, irma, no armario 3.", c.PertencesDestino);
+
+        Assert.NotNull(c.EncaminhadoAoCentroEm);
+
+        // O preparo nao e parada da lista: preenche-lo nao pode carimbar o
+        // check-in nem fechar a fila.
+        Assert.Null(c.CheckInEm);
+    }
+
+    [SkippableFact]
+    public async Task O_que_foi_retirado_do_paciente_tem_onde_ser_devolvido()
+    {
+        Skip.IfNot(ApiFixture.BancoDisponivel, "ATENDIMENTO_TEST_DB nao configurado.");
+
+        var client = await CirurgiaoAsync("cirurgia.pertences");
+        var atendimento = await AbrirAsync(client, "Paciente Da Protese");
+
+        (await SalvarAsync(client, atendimento.Id, new
+        {
+            pertencesProteseDentaria = true,
+            pertencesDestino = "Armario 7."
+        })).EnsureSuccessStatusCode();
+
+        var antes = (await LerAsync(client, atendimento.Id)).Cirurgia!;
+        Assert.True(antes.PertencesProteseDentaria);
+        Assert.False(antes.PertencesDevolvidos);
+
+        (await SalvarAsync(client, atendimento.Id, new
+        {
+            pertencesProteseDentaria = true,
+            pertencesDestino = "Armario 7.",
+            pertencesDevolvidos = true,
+            recuperacaoDieta = "Liquida liberada as 14h."
+        })).EnsureSuccessStatusCode();
+
+        var depois = (await LerAsync(client, atendimento.Id)).Cirurgia!;
+
+        // Sem este par, o registro diria o que foi tirado e nunca o que voltou —
+        // e a protese esquecida numa gaveta vai embora com a equipe no fim da
+        // missao.
+        Assert.True(depois.PertencesDevolvidos);
+        Assert.Equal("Liquida liberada as 14h.", depois.RecuperacaoDieta);
+    }
 }

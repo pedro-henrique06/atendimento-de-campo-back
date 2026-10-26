@@ -269,6 +269,8 @@ public static class Mapeadores
             c.EncaminhadoPara,
             ortopedia,
             ginecologia,
+            c.SintomasSaudeMental,
+            c.PerdasVivenciadas,
             etapa.Dispensacoes.Select(ParaDispensacaoDto).ToList(),
             etapa.ConcluidaEm);
     }
@@ -323,6 +325,20 @@ public static class Mapeadores
             c.JejumHoras,
             c.ConsentimentoAssinado,
             c.ObservacoesPreOperatorio,
+            c.PreparoCuidadosEnfermagem,
+            c.PreparoTricotomia,
+            c.PreparoTricotomiaLocal,
+            c.PreparoBanhoClorexidine,
+            c.PreparoPulseiraIdentificacao,
+            c.PreOpEcg,
+            c.PreOpLaboratorial,
+            c.PreOpUltrassom,
+            c.PreOpExamesObservacao,
+            c.PreOpAvaliacaoAnestesica,
+            c.PertencesProteseDentaria,
+            c.PertencesRoupasAcessorios,
+            c.PertencesDestino,
+            c.EncaminhadoAoCentroEm,
             c.CheckInIdentidadeConfirmada,
             c.CheckInSitioMarcado,
             c.CheckInConsentimentoConferido,
@@ -350,6 +366,8 @@ public static class Mapeadores
             c.RecuperacaoSaidaEm,
             c.Intercorrencias,
             c.ObservacoesRecuperacao,
+            c.PertencesDevolvidos,
+            c.RecuperacaoDieta,
             c.Desfecho,
             etapa.ConcluidaEm);
     }

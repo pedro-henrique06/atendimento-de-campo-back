@@ -5,6 +5,18 @@ namespace AtendimentoDeCampo.Tests;
 
 public class ValidadorDispensacaoTests
 {
+    /// <summary>
+    /// Material de entrega: gaze nao se administra, entao nao tem via nenhuma.
+    /// </summary>
+    private static ItemCatalogo Gaze() => new()
+    {
+        Nome = "Gaze esteril",
+        Forma = FormaFarmaceutica.Insumo,
+        Unidade = UnidadeDispensacao.Unidade,
+        Categoria = CategoriaItem.Insumo,
+        ViasPermitidas = new List<ViaAdministracao>()
+    };
+
     private static ItemCatalogo Comprimido() => new()
     {
         Nome = "Ibuprofeno",
@@ -184,5 +196,48 @@ public class ValidadorDispensacaoTests
         };
 
         Assert.Contains(ValidadorDispensacao.Validar(entrada, item), e => e.Contains("inativo"));
+    }
+
+    /*
+        CORRIGE: a via era exigida de todo item do catalogo, e a lista de vias
+        permitidas so era conferida quando existia. Juntas, as duas regras
+        davam o pior dos dois lados — gaze esteril nao podia ser dispensada de
+        forma nenhuma, e quem contornasse escolhendo qualquer via passava,
+        porque a checagem de compatibilidade nao rodava com a lista vazia.
+        "Gaze esteril - Oral" era aceito, que e exatamente o tipo de registro
+        que este validador existe para impedir.
+    */
+
+    [Fact]
+    public void MaterialSemViaEhDispensadoSemVia()
+    {
+        var entrada = new EntradaDispensacao { ItemId = Guid.NewGuid(), Quantidade = 4 };
+
+        Assert.Empty(ValidadorDispensacao.Validar(entrada, Gaze()));
+    }
+
+    [Fact]
+    public void MaterialSemViaNaoAceitaViaNenhuma()
+    {
+        var entrada = new EntradaDispensacao
+        {
+            ItemId = Guid.NewGuid(),
+            Quantidade = 4,
+            Via = ViaAdministracao.Oral
+        };
+
+        Assert.Contains(
+            ValidadorDispensacao.Validar(entrada, Gaze()),
+            e => e.Contains("nao tem via de administracao"));
+    }
+
+    [Fact]
+    public void MedicamentoContinuaExigindoVia()
+    {
+        var entrada = new EntradaDispensacao { ItemId = Guid.NewGuid(), Quantidade = 1 };
+
+        Assert.Contains(
+            ValidadorDispensacao.Validar(entrada, Comprimido()),
+            e => e.Contains("Informe a via"));
     }
 }

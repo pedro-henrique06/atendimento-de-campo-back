@@ -608,6 +608,67 @@ public class Cirurgia
     public bool ConsentimentoAssinado { get; set; }
     public string? ObservacoesPreOperatorio { get; set; }
 
+    // -- Preparo de enfermagem: antes de o paciente sair da enfermaria -----
+    //
+    // E o bloco que a enfermagem preenche na ficha de papel antes de encaminhar
+    // o paciente ao centro cirurgico. Nao se confunde com o check-in, que
+    // acontece ja na porta da sala e e conferencia da equipe cirurgica: aqui e
+    // o que se faz *com* o paciente — tricotomia, banho, pulseira — e o que se
+    // guarda dele.
+
+    /// <summary>A anotacao da enfermagem sobre o preparo, em texto livre.</summary>
+    public string? PreparoCuidadosEnfermagem { get; set; }
+
+    public bool PreparoTricotomia { get; set; }
+
+    /// <summary>
+    /// Onde a tricotomia foi feita.
+    ///
+    /// Campo proprio, e nao parte da anotacao: tricotomia no lugar errado e
+    /// incidente, e o local precisa ser conferivel sem alguem ler um paragrafo.
+    /// </summary>
+    public string? PreparoTricotomiaLocal { get; set; }
+
+    public bool PreparoBanhoClorexidine { get; set; }
+    public bool PreparoPulseiraIdentificacao { get; set; }
+
+    // Exames que precisam estar prontos antes da sala. Sao tres caixas porque e
+    // assim que a equipe confere — "tem ECG?" —, e nao um texto onde o que
+    // falta se esconde.
+    public bool PreOpEcg { get; set; }
+    public bool PreOpLaboratorial { get; set; }
+    public bool PreOpUltrassom { get; set; }
+
+    /// <summary>Qual exame, quando o nome importa para quem vai receber.</summary>
+    public string? PreOpExamesObservacao { get; set; }
+
+    /// <summary>
+    /// A avaliacao pre-anestesica foi feita.
+    ///
+    /// Existe a fila da anestesia, e e nela que a avaliacao acontece; esta
+    /// caixa e a conferencia de quem encaminha, que precisa saber que ela
+    /// aconteceu sem sair da propria ficha.
+    /// </summary>
+    public bool PreOpAvaliacaoAnestesica { get; set; }
+
+    // Pertences retirados antes da sala. Protese dentaria e caixa propria
+    // porque e a que vira incidente: esquecida na boca, e risco de via aerea;
+    // perdida, e um aparelho que a pessoa nao tem como repor em campo.
+    public bool PertencesProteseDentaria { get; set; }
+    public bool PertencesRoupasAcessorios { get; set; }
+
+    /// <summary>Com quem ficaram: o acompanhante, pelo nome, ou o armario.</summary>
+    public string? PertencesDestino { get; set; }
+
+    /// <summary>
+    /// Quando o paciente foi encaminhado ao centro cirurgico.
+    ///
+    /// Digitada, e nao carimbada como as paradas da lista: e a hora em que a
+    /// maca saiu, que nao e a hora em que alguem teve a mao livre para
+    /// registrar.
+    /// </summary>
+    public DateTime? EncaminhadoAoCentroEm { get; set; }
+
     // -- Check-in: antes de o paciente entrar na sala ----------------------
 
     public bool CheckInIdentidadeConfirmada { get; set; }
@@ -661,6 +722,19 @@ public class Cirurgia
     public DateTime? RecuperacaoSaidaEm { get; set; }
     public string? Intercorrencias { get; set; }
     public string? ObservacoesRecuperacao { get; set; }
+
+    /// <summary>
+    /// Os pertences voltaram para o paciente.
+    ///
+    /// Fecha o laco aberto por <see cref="PertencesProteseDentaria"/> e
+    /// companhia. Sem esta caixa, o registro diria o que foi tirado e nunca o
+    /// que foi devolvido — e a protese esquecida numa gaveta vai embora com a
+    /// equipe no fim da missao.
+    /// </summary>
+    public bool PertencesDevolvidos { get; set; }
+
+    /// <summary>Quando a dieta foi liberada depois do jejum, e qual.</summary>
+    public string? RecuperacaoDieta { get; set; }
 
     public DesfechoConsulta? Desfecho { get; set; }
 }
