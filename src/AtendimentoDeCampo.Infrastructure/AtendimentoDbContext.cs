@@ -349,6 +349,40 @@ public class AtendimentoDbContext : DbContext
             e.Property(x => x.Intercorrencias).HasMaxLength(2000);
             e.Property(x => x.ObservacoesRecuperacao).HasMaxLength(2000);
 
+            // Preparo e conferencias pre-operatorias.
+            e.Property(x => x.PreparoCuidadosEnfermagem).HasMaxLength(2000);
+            e.Property(x => x.PreparoTricotomiaLocal).HasMaxLength(200);
+            e.Property(x => x.PreOpExamesObservacao).HasMaxLength(500);
+            e.Property(x => x.PertencesDestino).HasMaxLength(300);
+
+            // Transoperatorio.
+            e.Property(x => x.TimeOutDoisAntibioticoQual).HasMaxLength(300);
+            e.Property(x => x.AnestesiaLocal).HasMaxLength(300);
+            e.Property(x => x.PlacaBisturiLocal).HasMaxLength(200);
+            e.Property(x => x.PreparoDaPele).HasMaxLength(500);
+            e.Property(x => x.Antissepsia).HasMaxLength(500);
+            e.Property(x => x.IncisaoCirurgica).HasMaxLength(500);
+            e.Property(x => x.Curativo).HasMaxLength(500);
+            e.Property(x => x.MedicacoesRealizadas).HasMaxLength(2000);
+            e.Property(x => x.EvolucaoMedica).HasMaxLength(4000);
+            e.Property(x => x.EvolucaoEnfermagem).HasMaxLength(4000);
+
+            // Recuperacao pos-anestesica.
+            e.Property(x => x.RecuperacaoOxigenioDetalhe).HasMaxLength(60);
+            e.Property(x => x.RecuperacaoAcessoVenosoDescricao).HasMaxLength(200);
+            e.Property(x => x.RecuperacaoCateterVenosoCentralLocal).HasMaxLength(200);
+            e.Property(x => x.RecuperacaoInfusoes).HasMaxLength(1000);
+            e.Property(x => x.RecuperacaoDrogasVasoativas).HasMaxLength(1000);
+            e.Property(x => x.RecuperacaoDrenoDescricao).HasMaxLength(300);
+            e.Property(x => x.RecuperacaoOutroDispositivo).HasMaxLength(300);
+            e.Property(x => x.RecuperacaoEvolucaoMedica).HasMaxLength(4000);
+            e.Property(x => x.RecuperacaoEvolucaoEnfermagem).HasMaxLength(4000);
+            e.Property(x => x.RecuperacaoDieta).HasMaxLength(300);
+
+            // Tecnicas anestesicas: lista porque se combinam — raqui com
+            // sedacao e rotina. Gravada como array de inteiro, como os sintomas.
+            AplicarListaEnum<Cirurgia, TipoAnestesia>(e, x => x.Anestesia);
+
             e.HasOne(x => x.Etapa)
                 .WithOne(x => x.Cirurgia)
                 .HasForeignKey<Cirurgia>(x => x.EtapaId)

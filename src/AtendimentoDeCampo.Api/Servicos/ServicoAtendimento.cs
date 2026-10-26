@@ -732,6 +732,7 @@ public sealed class ServicoAtendimento
         cirurgia.PertencesRoupasAcessorios = req.PertencesRoupasAcessorios;
         cirurgia.PertencesDestino = req.PertencesDestino;
         cirurgia.EncaminhadoAoCentroEm = req.EncaminhadoAoCentroEm?.ToUniversalTime();
+        cirurgia.ChegadaAoCentroEm = req.ChegadaAoCentroEm?.ToUniversalTime();
 
         cirurgia.CheckInIdentidadeConfirmada = req.CheckInIdentidadeConfirmada;
         cirurgia.CheckInSitioMarcado = req.CheckInSitioMarcado;
@@ -743,23 +744,96 @@ public sealed class ServicoAtendimento
         cirurgia.TimeOutUmMonitorizacaoOk = req.TimeOutUmMonitorizacaoOk;
         cirurgia.TimeOutUmViaAereaAvaliada = req.TimeOutUmViaAereaAvaliada;
         cirurgia.TimeOutUmRiscoSangramentoAvaliado = req.TimeOutUmRiscoSangramentoAvaliado;
+        cirurgia.TimeOutUmExamesEmSala = req.TimeOutUmExamesEmSala;
+        cirurgia.TimeOutUmVerificacaoAnestesica = req.TimeOutUmVerificacaoAnestesica;
+        cirurgia.TimeOutUmViaAereaDificil = req.TimeOutUmViaAereaDificil;
 
         cirurgia.TimeOutDoisPacienteSitioProcedimentoConfirmados = req.TimeOutDoisPacienteSitioProcedimentoConfirmados;
         cirurgia.TimeOutDoisAntibioticoProfilatico = req.TimeOutDoisAntibioticoProfilatico;
+
+        // So guarda o nome quando houve antibiotico: "qual" preenchido junto de
+        // "nao foi feito" e contradicao gravada, e alguem vai ler so um dos dois.
+        cirurgia.TimeOutDoisAntibioticoQual = req.TimeOutDoisAntibioticoProfilatico
+            ? Limpar(req.TimeOutDoisAntibioticoQual)
+            : null;
+
         cirurgia.TimeOutDoisImagensDisponiveis = req.TimeOutDoisImagensDisponiveis;
         cirurgia.TimeOutDoisEventosCriticosRevistos = req.TimeOutDoisEventosCriticosRevistos;
         cirurgia.TimeOutDoisMaterialEsterilizado = req.TimeOutDoisMaterialEsterilizado;
+        cirurgia.TimeOutDoisPrevisaoBiopsia = req.TimeOutDoisPrevisaoBiopsia;
+        cirurgia.TimeOutDoisTempoPrevistoMinutos = req.TimeOutDoisTempoPrevistoMinutos;
+        cirurgia.TimeOutDoisInstrumentalIntegrador = req.TimeOutDoisInstrumentalIntegrador;
+
+        cirurgia.Anestesia = req.Anestesia;
+        cirurgia.AnestesiaLocal = Limpar(req.AnestesiaLocal);
+        cirurgia.Posicionamento = req.Posicionamento;
+        cirurgia.PlacaBisturi = req.PlacaBisturi;
+
+        // Mesma regra do "qual" do antibiotico e do local da tricotomia: o
+        // detalhe so existe quando a resposta foi sim.
+        cirurgia.PlacaBisturiLocal = req.PlacaBisturi ? Limpar(req.PlacaBisturiLocal) : null;
+
+        cirurgia.PreparoDaPele = Limpar(req.PreparoDaPele);
+        cirurgia.Antissepsia = Limpar(req.Antissepsia);
+        cirurgia.IncisaoCirurgica = Limpar(req.IncisaoCirurgica);
+        cirurgia.Curativo = Limpar(req.Curativo);
+        cirurgia.MedicacoesRealizadas = Limpar(req.MedicacoesRealizadas);
+        cirurgia.GazesUtilizadas = req.GazesUtilizadas;
+        cirurgia.CompressasUtilizadas = req.CompressasUtilizadas;
+        cirurgia.EvolucaoMedica = Limpar(req.EvolucaoMedica);
+        cirurgia.EvolucaoEnfermagem = Limpar(req.EvolucaoEnfermagem);
 
         cirurgia.CheckOutProcedimentoRegistrado = req.CheckOutProcedimentoRegistrado;
         cirurgia.CheckOutContagemConfere = req.CheckOutContagemConfere;
         cirurgia.CheckOutAmostrasIdentificadas = req.CheckOutAmostrasIdentificadas;
+
+        // A quantidade so faz sentido quando houve peca identificada.
+        cirurgia.CheckOutBiopsiaQuantidade = req.CheckOutAmostrasIdentificadas
+            ? req.CheckOutBiopsiaQuantidade
+            : null;
+
         cirurgia.CheckOutProblemasComEquipamento = req.CheckOutProblemasComEquipamento;
         cirurgia.CheckOutCuidadosRecuperacao = req.CheckOutCuidadosRecuperacao;
 
+        cirurgia.DestinoPosOperatorio = req.DestinoPosOperatorio;
         cirurgia.RecuperacaoEntradaEm = req.RecuperacaoEntradaEm?.ToUniversalTime();
         cirurgia.RecuperacaoSaidaEm = req.RecuperacaoSaidaEm?.ToUniversalTime();
         cirurgia.Intercorrencias = req.Intercorrencias;
         cirurgia.ObservacoesRecuperacao = req.ObservacoesRecuperacao;
+        cirurgia.RecuperacaoNivelConsciencia = req.RecuperacaoNivelConsciencia;
+        cirurgia.RecuperacaoSuporteOxigenio = req.RecuperacaoSuporteOxigenio;
+
+        // Ar ambiente nao tem numero: guardar "3 l/min" ao lado dele seria
+        // guardar a resposta de uma pergunta que nao foi feita.
+        cirurgia.RecuperacaoOxigenioDetalhe =
+            req.RecuperacaoSuporteOxigenio is SuporteOxigenio.CateterNasal or SuporteOxigenio.MascaraVenturi
+                ? Limpar(req.RecuperacaoOxigenioDetalhe)
+                : null;
+
+        cirurgia.RecuperacaoAcessoVenosoPeriferico = req.RecuperacaoAcessoVenosoPeriferico;
+        cirurgia.RecuperacaoAcessoVenosoDescricao = req.RecuperacaoAcessoVenosoPeriferico
+            ? Limpar(req.RecuperacaoAcessoVenosoDescricao)
+            : null;
+
+        cirurgia.RecuperacaoCateterVenosoCentral = req.RecuperacaoCateterVenosoCentral;
+        cirurgia.RecuperacaoCateterVenosoCentralLocal = req.RecuperacaoCateterVenosoCentral
+            ? Limpar(req.RecuperacaoCateterVenosoCentralLocal)
+            : null;
+
+        cirurgia.RecuperacaoInfusoes = Limpar(req.RecuperacaoInfusoes);
+        cirurgia.RecuperacaoIntervencaoIntensiva = req.RecuperacaoIntervencaoIntensiva;
+        cirurgia.RecuperacaoDrogasVasoativas = Limpar(req.RecuperacaoDrogasVasoativas);
+
+        cirurgia.RecuperacaoDreno = req.RecuperacaoDreno;
+        cirurgia.RecuperacaoDrenoDescricao = req.RecuperacaoDreno
+            ? Limpar(req.RecuperacaoDrenoDescricao)
+            : null;
+
+        cirurgia.RecuperacaoSondaVesical = req.RecuperacaoSondaVesical;
+        cirurgia.RecuperacaoSondaNasogastrica = req.RecuperacaoSondaNasogastrica;
+        cirurgia.RecuperacaoOutroDispositivo = Limpar(req.RecuperacaoOutroDispositivo);
+        cirurgia.RecuperacaoEvolucaoMedica = Limpar(req.RecuperacaoEvolucaoMedica);
+        cirurgia.RecuperacaoEvolucaoEnfermagem = Limpar(req.RecuperacaoEvolucaoEnfermagem);
         cirurgia.PertencesDevolvidos = req.PertencesDevolvidos;
         cirurgia.RecuperacaoDieta = req.RecuperacaoDieta;
 
@@ -818,21 +892,32 @@ public sealed class ServicoAtendimento
             c.CheckInEm = agora;
         }
 
+        /*
+            "Via aerea dificil" fica de fora: e achado, e nao conferencia.
+            Exigi-lo para dar a parada por concluida obrigaria a equipe a
+            declarar uma via aerea dificil que o paciente nao tem — exatamente o
+            que "problemas com equipamento" ja evita no check out.
+        */
         if (c.TimeOutUmEm is null
             && c.TimeOutUmEquipeApresentada
             && c.TimeOutUmMonitorizacaoOk
             && c.TimeOutUmViaAereaAvaliada
-            && c.TimeOutUmRiscoSangramentoAvaliado)
+            && c.TimeOutUmRiscoSangramentoAvaliado
+            && c.TimeOutUmExamesEmSala
+            && c.TimeOutUmVerificacaoAnestesica)
         {
             c.TimeOutUmEm = agora;
         }
 
+        // "Previsao de biopsia" tambem e resposta, e nao item conferido: a
+        // maioria das cirurgias nao tem biopsia prevista.
         if (c.TimeOutDoisEm is null
             && c.TimeOutDoisPacienteSitioProcedimentoConfirmados
             && c.TimeOutDoisAntibioticoProfilatico
             && c.TimeOutDoisImagensDisponiveis
             && c.TimeOutDoisEventosCriticosRevistos
-            && c.TimeOutDoisMaterialEsterilizado)
+            && c.TimeOutDoisMaterialEsterilizado
+            && c.TimeOutDoisInstrumentalIntegrador)
         {
             c.TimeOutDoisEm = agora;
         }
@@ -2115,21 +2200,82 @@ public sealed class ServicoAtendimento
             (c.TimeOutUmEquipeApresentada, "equipe"),
             (c.TimeOutUmMonitorizacaoOk, "monitorizacao"),
             (c.TimeOutUmViaAereaAvaliada, "viaAerea"),
-            (c.TimeOutUmRiscoSangramentoAvaliado, "sangramento")),
+            (c.TimeOutUmRiscoSangramentoAvaliado, "sangramento"),
+            (c.TimeOutUmExamesEmSala, "examesEmSala"),
+            (c.TimeOutUmVerificacaoAnestesica, "verificacaoAnestesica")),
+
+        // Separado da lista de conferencias: e achado, e nao item conferido.
+        // Dentro dela, "via aerea dificil" leria como mais uma caixa marcada.
+        ["cirurgia.viaAereaDificil"] = Booleano(c.TimeOutUmViaAereaDificil),
+
         ["cirurgia.timeOutDois"] = Conferidos(
             (c.TimeOutDoisPacienteSitioProcedimentoConfirmados, "pacienteSitioProcedimento"),
             (c.TimeOutDoisAntibioticoProfilatico, "antibiotico"),
             (c.TimeOutDoisImagensDisponiveis, "imagens"),
             (c.TimeOutDoisEventosCriticosRevistos, "eventosCriticos"),
-            (c.TimeOutDoisMaterialEsterilizado, "esterilizacao")),
+            (c.TimeOutDoisMaterialEsterilizado, "esterilizacao"),
+            (c.TimeOutDoisPrevisaoBiopsia, "previsaoBiopsia"),
+            (c.TimeOutDoisInstrumentalIntegrador, "instrumentalIntegrador")),
+        ["cirurgia.antibioticoQual"] = c.TimeOutDoisAntibioticoQual,
+        ["cirurgia.tempoPrevistoMinutos"] = c.TimeOutDoisTempoPrevistoMinutos?.ToString(),
+
+        // O transoperatorio entra campo a campo: aqui nao sao caixas de uma
+        // lista de verificacao, sao o que foi feito. Mudar "incisao" depois de
+        // gravado e a alteracao que alguem vai querer explicar.
+        ["cirurgia.anestesia"] = c.Anestesia.Count == 0
+            ? null
+            : string.Join(",", c.Anestesia.Select(a => a.ToString())),
+        ["cirurgia.anestesiaLocal"] = c.AnestesiaLocal,
+        ["cirurgia.posicionamento"] = c.Posicionamento?.ToString(),
+        ["cirurgia.placaBisturi"] = Booleano(c.PlacaBisturi),
+        ["cirurgia.placaBisturiLocal"] = c.PlacaBisturiLocal,
+        ["cirurgia.preparoDaPele"] = c.PreparoDaPele,
+        ["cirurgia.antissepsia"] = c.Antissepsia,
+        ["cirurgia.incisao"] = c.IncisaoCirurgica,
+        ["cirurgia.curativo"] = c.Curativo,
+        ["cirurgia.medicacoesRealizadas"] = c.MedicacoesRealizadas,
+        ["cirurgia.gazesUtilizadas"] = c.GazesUtilizadas?.ToString(),
+        ["cirurgia.compressasUtilizadas"] = c.CompressasUtilizadas?.ToString(),
+        ["cirurgia.evolucaoMedica"] = c.EvolucaoMedica,
+        ["cirurgia.evolucaoEnfermagem"] = c.EvolucaoEnfermagem,
+
         ["cirurgia.checkOut"] = Conferidos(
             (c.CheckOutProcedimentoRegistrado, "procedimento"),
             (c.CheckOutContagemConfere, "contagem"),
             (c.CheckOutAmostrasIdentificadas, "amostras"),
             (c.CheckOutProblemasComEquipamento, "problemaEquipamento")),
+        ["cirurgia.biopsiaQuantidade"] = c.CheckOutBiopsiaQuantidade?.ToString(),
         ["cirurgia.cuidadosRecuperacao"] = c.CheckOutCuidadosRecuperacao,
+
+        ["cirurgia.destinoPosOperatorio"] = c.DestinoPosOperatorio?.ToString(),
         ["cirurgia.intercorrencias"] = c.Intercorrencias,
         ["cirurgia.observacoesRecuperacao"] = c.ObservacoesRecuperacao,
+        ["cirurgia.nivelConsciencia"] = c.RecuperacaoNivelConsciencia?.ToString(),
+        ["cirurgia.suporteOxigenio"] = c.RecuperacaoSuporteOxigenio?.ToString(),
+        ["cirurgia.oxigenioDetalhe"] = c.RecuperacaoOxigenioDetalhe,
+
+        // Os dispositivos que sairam da sala com o paciente, numa linha: o que
+        // interessa depois e o conjunto, e cada um deles tem detalhe proprio
+        // gravado ao lado.
+        ["cirurgia.dispositivos"] = Conferidos(
+            (c.RecuperacaoAcessoVenosoPeriferico, "acessoPeriferico"),
+            (c.RecuperacaoCateterVenosoCentral, "cateterCentral"),
+            (c.RecuperacaoDreno, "dreno"),
+            (c.RecuperacaoSondaVesical, "sondaVesical"),
+            (c.RecuperacaoSondaNasogastrica, "sondaNasogastrica")),
+        ["cirurgia.acessoVenosoDescricao"] = c.RecuperacaoAcessoVenosoDescricao,
+        ["cirurgia.cateterCentralLocal"] = c.RecuperacaoCateterVenosoCentralLocal,
+        ["cirurgia.drenoDescricao"] = c.RecuperacaoDrenoDescricao,
+        ["cirurgia.outroDispositivo"] = c.RecuperacaoOutroDispositivo,
+        ["cirurgia.infusoes"] = c.RecuperacaoInfusoes,
+
+        // Fora da lista de dispositivos de proposito: e o numero que a
+        // coordenacao procura quando pergunta como foi a missao, e dentro de
+        // uma lista de marcados ele leria como mais um item de inventario.
+        ["cirurgia.intervencaoIntensiva"] = Booleano(c.RecuperacaoIntervencaoIntensiva),
+        ["cirurgia.drogasVasoativas"] = c.RecuperacaoDrogasVasoativas,
+        ["cirurgia.recuperacaoEvolucaoMedica"] = c.RecuperacaoEvolucaoMedica,
+        ["cirurgia.recuperacaoEvolucaoEnfermagem"] = c.RecuperacaoEvolucaoEnfermagem,
         ["cirurgia.desfecho"] = c.Desfecho?.ToString()
     };
 

@@ -218,6 +218,18 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int[]>("Anestesia")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<string>("AnestesiaLocal")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("Antissepsia")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<bool>("CheckInAlergiaConferida")
                         .HasColumnType("boolean");
 
@@ -239,6 +251,9 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<bool>("CheckOutAmostrasIdentificadas")
                         .HasColumnType("boolean");
 
+                    b.Property<int?>("CheckOutBiopsiaQuantidade")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("CheckOutContagemConfere")
                         .HasColumnType("boolean");
 
@@ -255,10 +270,23 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<bool>("CheckOutProcedimentoRegistrado")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("ChegadaAoCentroEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("CompressasUtilizadas")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("ConsentimentoAssinado")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Curativo")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<int?>("Desfecho")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("DestinoPosOperatorio")
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("EncaminhadoAoCentroEm")
@@ -266,6 +294,21 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
 
                     b.Property<Guid>("EtapaId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("EvolucaoEnfermagem")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("EvolucaoMedica")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<int?>("GazesUtilizadas")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("IncisaoCirurgica")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<string>("Indicacao")
                         .HasMaxLength(1000)
@@ -281,6 +324,10 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<int>("Lateralidade")
                         .HasColumnType("integer");
 
+                    b.Property<string>("MedicacoesRealizadas")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<string>("ObservacoesPreOperatorio")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -290,7 +337,8 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasColumnType("character varying(2000)");
 
                     b.Property<string>("PertencesDestino")
-                        .HasColumnType("text");
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<bool>("PertencesDevolvidos")
                         .HasColumnType("boolean");
@@ -301,6 +349,16 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<bool>("PertencesRoupasAcessorios")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("PlacaBisturi")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PlacaBisturiLocal")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int?>("Posicionamento")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("PreOpAvaliacaoAnestesica")
                         .HasColumnType("boolean");
 
@@ -308,7 +366,8 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("PreOpExamesObservacao")
-                        .HasColumnType("text");
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<bool>("PreOpLaboratorial")
                         .HasColumnType("boolean");
@@ -320,7 +379,12 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("PreparoCuidadosEnfermagem")
-                        .HasColumnType("text");
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("PreparoDaPele")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<bool>("PreparoPulseiraIdentificacao")
                         .HasColumnType("boolean");
@@ -329,23 +393,89 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasColumnType("boolean");
 
                     b.Property<string>("PreparoTricotomiaLocal")
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<string>("ProcedimentoProposto")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<string>("RecuperacaoAcessoVenosoDescricao")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("RecuperacaoAcessoVenosoPeriferico")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RecuperacaoCateterVenosoCentral")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RecuperacaoCateterVenosoCentralLocal")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("RecuperacaoDieta")
-                        .HasColumnType("text");
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("RecuperacaoDreno")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RecuperacaoDrenoDescricao")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("RecuperacaoDrogasVasoativas")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<DateTime?>("RecuperacaoEntradaEm")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("RecuperacaoEvolucaoEnfermagem")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("RecuperacaoEvolucaoMedica")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("RecuperacaoInfusoes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<bool>("RecuperacaoIntervencaoIntensiva")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("RecuperacaoNivelConsciencia")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RecuperacaoOutroDispositivo")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("RecuperacaoOxigenioDetalhe")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
                     b.Property<DateTime?>("RecuperacaoSaidaEm")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("RecuperacaoSondaNasogastrica")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("RecuperacaoSondaVesical")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("RecuperacaoSuporteOxigenio")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("TimeOutDoisAntibioticoProfilatico")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("TimeOutDoisAntibioticoQual")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<DateTime?>("TimeOutDoisEm")
                         .HasColumnType("timestamp with time zone");
@@ -356,16 +486,28 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<bool>("TimeOutDoisImagensDisponiveis")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("TimeOutDoisInstrumentalIntegrador")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("TimeOutDoisMaterialEsterilizado")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("TimeOutDoisPacienteSitioProcedimentoConfirmados")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("TimeOutDoisPrevisaoBiopsia")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("TimeOutDoisTempoPrevistoMinutos")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime?>("TimeOutUmEm")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<bool>("TimeOutUmEquipeApresentada")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("TimeOutUmExamesEmSala")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("TimeOutUmMonitorizacaoOk")
@@ -374,7 +516,13 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<bool>("TimeOutUmRiscoSangramentoAvaliado")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("TimeOutUmVerificacaoAnestesica")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("TimeOutUmViaAereaAvaliada")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("TimeOutUmViaAereaDificil")
                         .HasColumnType("boolean");
 
                     b.HasKey("Id");
