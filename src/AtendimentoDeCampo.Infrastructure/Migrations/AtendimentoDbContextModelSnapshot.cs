@@ -261,6 +261,9 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                     b.Property<int?>("Desfecho")
                         .HasColumnType("integer");
 
+                    b.Property<DateTime?>("EncaminhadoAoCentroEm")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("EtapaId")
                         .HasColumnType("uuid");
 
@@ -286,9 +289,54 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<string>("PertencesDestino")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("PertencesDevolvidos")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PertencesProteseDentaria")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PertencesRoupasAcessorios")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PreOpAvaliacaoAnestesica")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PreOpEcg")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PreOpExamesObservacao")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("PreOpLaboratorial")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PreOpUltrassom")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PreparoBanhoClorexidine")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PreparoCuidadosEnfermagem")
+                        .HasColumnType("text");
+
+                    b.Property<bool>("PreparoPulseiraIdentificacao")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("PreparoTricotomia")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("PreparoTricotomiaLocal")
+                        .HasColumnType("text");
+
                     b.Property<string>("ProcedimentoProposto")
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
+
+                    b.Property<string>("RecuperacaoDieta")
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("RecuperacaoEntradaEm")
                         .HasColumnType("timestamp with time zone");

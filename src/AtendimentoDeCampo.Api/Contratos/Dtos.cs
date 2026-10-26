@@ -886,6 +886,23 @@ public sealed record RegistrarCirurgiaRequest
     public bool ConsentimentoAssinado { get; init; }
     [MaxLength(2000)] public string? ObservacoesPreOperatorio { get; init; }
 
+    [MaxLength(2000)] public string? PreparoCuidadosEnfermagem { get; init; }
+    public bool PreparoTricotomia { get; init; }
+    [MaxLength(200)] public string? PreparoTricotomiaLocal { get; init; }
+    public bool PreparoBanhoClorexidine { get; init; }
+    public bool PreparoPulseiraIdentificacao { get; init; }
+
+    public bool PreOpEcg { get; init; }
+    public bool PreOpLaboratorial { get; init; }
+    public bool PreOpUltrassom { get; init; }
+    [MaxLength(500)] public string? PreOpExamesObservacao { get; init; }
+    public bool PreOpAvaliacaoAnestesica { get; init; }
+
+    public bool PertencesProteseDentaria { get; init; }
+    public bool PertencesRoupasAcessorios { get; init; }
+    [MaxLength(300)] public string? PertencesDestino { get; init; }
+    public DateTime? EncaminhadoAoCentroEm { get; init; }
+
     public bool CheckInIdentidadeConfirmada { get; init; }
     public bool CheckInSitioMarcado { get; init; }
     public bool CheckInConsentimentoConferido { get; init; }
@@ -913,6 +930,8 @@ public sealed record RegistrarCirurgiaRequest
     public DateTime? RecuperacaoSaidaEm { get; init; }
     [MaxLength(2000)] public string? Intercorrencias { get; init; }
     [MaxLength(2000)] public string? ObservacoesRecuperacao { get; init; }
+    public bool PertencesDevolvidos { get; init; }
+    [MaxLength(300)] public string? RecuperacaoDieta { get; init; }
 
     public DesfechoConsulta? Desfecho { get; init; }
     public Especialidade? EncaminhadoPara { get; init; }
@@ -927,6 +946,21 @@ public sealed record CirurgiaDto(
     int? JejumHoras,
     bool ConsentimentoAssinado,
     string? ObservacoesPreOperatorio,
+    string? PreparoCuidadosEnfermagem,
+    bool PreparoTricotomia,
+    string? PreparoTricotomiaLocal,
+    bool PreparoBanhoClorexidine,
+    bool PreparoPulseiraIdentificacao,
+    bool PreOpEcg,
+    bool PreOpLaboratorial,
+    bool PreOpUltrassom,
+    string? PreOpExamesObservacao,
+    bool PreOpAvaliacaoAnestesica,
+    bool PertencesProteseDentaria,
+    bool PertencesRoupasAcessorios,
+    string? PertencesDestino,
+    /// <summary>A hora em que a maca saiu, digitada por quem encaminhou.</summary>
+    DateTime? EncaminhadoAoCentroEm,
     bool CheckInIdentidadeConfirmada,
     bool CheckInSitioMarcado,
     bool CheckInConsentimentoConferido,
@@ -959,6 +993,8 @@ public sealed record CirurgiaDto(
     DateTime? RecuperacaoSaidaEm,
     string? Intercorrencias,
     string? ObservacoesRecuperacao,
+    bool PertencesDevolvidos,
+    string? RecuperacaoDieta,
     DesfechoConsulta? Desfecho,
     DateTime? ConcluidaEm);
 

@@ -716,6 +716,23 @@ public sealed class ServicoAtendimento
         cirurgia.ConsentimentoAssinado = req.ConsentimentoAssinado;
         cirurgia.ObservacoesPreOperatorio = req.ObservacoesPreOperatorio;
 
+        cirurgia.PreparoCuidadosEnfermagem = req.PreparoCuidadosEnfermagem;
+        cirurgia.PreparoTricotomia = req.PreparoTricotomia;
+        cirurgia.PreparoTricotomiaLocal = req.PreparoTricotomiaLocal;
+        cirurgia.PreparoBanhoClorexidine = req.PreparoBanhoClorexidine;
+        cirurgia.PreparoPulseiraIdentificacao = req.PreparoPulseiraIdentificacao;
+
+        cirurgia.PreOpEcg = req.PreOpEcg;
+        cirurgia.PreOpLaboratorial = req.PreOpLaboratorial;
+        cirurgia.PreOpUltrassom = req.PreOpUltrassom;
+        cirurgia.PreOpExamesObservacao = req.PreOpExamesObservacao;
+        cirurgia.PreOpAvaliacaoAnestesica = req.PreOpAvaliacaoAnestesica;
+
+        cirurgia.PertencesProteseDentaria = req.PertencesProteseDentaria;
+        cirurgia.PertencesRoupasAcessorios = req.PertencesRoupasAcessorios;
+        cirurgia.PertencesDestino = req.PertencesDestino;
+        cirurgia.EncaminhadoAoCentroEm = req.EncaminhadoAoCentroEm?.ToUniversalTime();
+
         cirurgia.CheckInIdentidadeConfirmada = req.CheckInIdentidadeConfirmada;
         cirurgia.CheckInSitioMarcado = req.CheckInSitioMarcado;
         cirurgia.CheckInConsentimentoConferido = req.CheckInConsentimentoConferido;
@@ -743,6 +760,8 @@ public sealed class ServicoAtendimento
         cirurgia.RecuperacaoSaidaEm = req.RecuperacaoSaidaEm?.ToUniversalTime();
         cirurgia.Intercorrencias = req.Intercorrencias;
         cirurgia.ObservacoesRecuperacao = req.ObservacoesRecuperacao;
+        cirurgia.PertencesDevolvidos = req.PertencesDevolvidos;
+        cirurgia.RecuperacaoDieta = req.RecuperacaoDieta;
 
         cirurgia.Desfecho = req.Desfecho;
 
@@ -2025,6 +2044,28 @@ public sealed class ServicoAtendimento
         ["cirurgia.jejumHoras"] = c.JejumHoras?.ToString(),
         ["cirurgia.consentimento"] = Booleano(c.ConsentimentoAssinado),
         ["cirurgia.observacoesPreOperatorio"] = c.ObservacoesPreOperatorio,
+
+        // O preparo da enfermagem segue a regra das paradas: o conjunto do que
+        // foi feito numa linha so. Caixa a caixa, uma cirurgia encheria o
+        // historico e a alteracao que importa se perderia no meio.
+        ["cirurgia.preparoEnfermagem"] = Conferidos(
+            (c.PreparoTricotomia, "tricotomia"),
+            (c.PreparoBanhoClorexidine, "banhoClorexidine"),
+            (c.PreparoPulseiraIdentificacao, "pulseira")),
+        ["cirurgia.preparoCuidados"] = c.PreparoCuidadosEnfermagem,
+        ["cirurgia.tricotomiaLocal"] = c.PreparoTricotomiaLocal,
+        ["cirurgia.examesPreOperatorios"] = Conferidos(
+            (c.PreOpEcg, "ecg"),
+            (c.PreOpLaboratorial, "laboratorial"),
+            (c.PreOpUltrassom, "ultrassom"),
+            (c.PreOpAvaliacaoAnestesica, "avaliacaoAnestesica")),
+        ["cirurgia.examesObservacao"] = c.PreOpExamesObservacao,
+        ["cirurgia.pertencesRetirados"] = Conferidos(
+            (c.PertencesProteseDentaria, "proteseDentaria"),
+            (c.PertencesRoupasAcessorios, "roupasAcessorios")),
+        ["cirurgia.pertencesDestino"] = c.PertencesDestino,
+        ["cirurgia.pertencesDevolvidos"] = Booleano(c.PertencesDevolvidos),
+        ["cirurgia.dieta"] = c.RecuperacaoDieta,
 
         // As paradas entram como o conjunto do que foi conferido, e nao caixa a
         // caixa: campo a campo, uma cirurgia encheria o historico com vinte
