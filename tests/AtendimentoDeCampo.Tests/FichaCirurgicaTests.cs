@@ -152,10 +152,16 @@ public class FichaCirurgicaTests
             checkInConsentimentoConferido = true,
             checkInAlergiaConferida = true,
             checkInJejumConferido = true,
+            // As seis conferencias do time out 1: as quatro originais mais
+            // exames em sala e verificacao anestesica, que o transoperatorio
+            // acrescentou. Com menos que isso a parada nao aconteceu, e o que
+            // este teste precisa e de uma parada concluida depois da primeira.
             timeOutUmEquipeApresentada = true,
             timeOutUmMonitorizacaoOk = true,
             timeOutUmViaAereaAvaliada = true,
-            timeOutUmRiscoSangramentoAvaliado = true
+            timeOutUmRiscoSangramentoAvaliado = true,
+            timeOutUmExamesEmSala = true,
+            timeOutUmVerificacaoAnestesica = true
         })).EnsureSuccessStatusCode();
 
         var depois = (await LerAsync(client, atendimento.Id)).Cirurgia!;

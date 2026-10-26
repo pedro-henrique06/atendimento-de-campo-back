@@ -918,6 +918,7 @@ public sealed record RegistrarCirurgiaRequest
     public bool PertencesRoupasAcessorios { get; init; }
     [MaxLength(300)] public string? PertencesDestino { get; init; }
     public DateTime? EncaminhadoAoCentroEm { get; init; }
+    public DateTime? ChegadaAoCentroEm { get; init; }
 
     public bool CheckInIdentidadeConfirmada { get; init; }
     public bool CheckInSitioMarcado { get; init; }
@@ -929,23 +930,64 @@ public sealed record RegistrarCirurgiaRequest
     public bool TimeOutUmMonitorizacaoOk { get; init; }
     public bool TimeOutUmViaAereaAvaliada { get; init; }
     public bool TimeOutUmRiscoSangramentoAvaliado { get; init; }
+    public bool TimeOutUmExamesEmSala { get; init; }
+    public bool TimeOutUmVerificacaoAnestesica { get; init; }
+    public bool TimeOutUmViaAereaDificil { get; init; }
 
     public bool TimeOutDoisPacienteSitioProcedimentoConfirmados { get; init; }
     public bool TimeOutDoisAntibioticoProfilatico { get; init; }
+    [MaxLength(300)] public string? TimeOutDoisAntibioticoQual { get; init; }
     public bool TimeOutDoisImagensDisponiveis { get; init; }
     public bool TimeOutDoisEventosCriticosRevistos { get; init; }
     public bool TimeOutDoisMaterialEsterilizado { get; init; }
+    public bool TimeOutDoisPrevisaoBiopsia { get; init; }
+    [Range(1, 1440)] public int? TimeOutDoisTempoPrevistoMinutos { get; init; }
+    public bool TimeOutDoisInstrumentalIntegrador { get; init; }
+
+    public List<TipoAnestesia> Anestesia { get; init; } = new();
+    [MaxLength(300)] public string? AnestesiaLocal { get; init; }
+    public PosicionamentoCirurgico? Posicionamento { get; init; }
+    public bool PlacaBisturi { get; init; }
+    [MaxLength(200)] public string? PlacaBisturiLocal { get; init; }
+    [MaxLength(500)] public string? PreparoDaPele { get; init; }
+    [MaxLength(500)] public string? Antissepsia { get; init; }
+    [MaxLength(500)] public string? IncisaoCirurgica { get; init; }
+    [MaxLength(500)] public string? Curativo { get; init; }
+    [MaxLength(2000)] public string? MedicacoesRealizadas { get; init; }
+    [Range(0, 999)] public int? GazesUtilizadas { get; init; }
+    [Range(0, 999)] public int? CompressasUtilizadas { get; init; }
+    [MaxLength(4000)] public string? EvolucaoMedica { get; init; }
+    [MaxLength(4000)] public string? EvolucaoEnfermagem { get; init; }
 
     public bool CheckOutProcedimentoRegistrado { get; init; }
     public bool CheckOutContagemConfere { get; init; }
     public bool CheckOutAmostrasIdentificadas { get; init; }
+    [Range(0, 99)] public int? CheckOutBiopsiaQuantidade { get; init; }
     public bool CheckOutProblemasComEquipamento { get; init; }
     [MaxLength(1000)] public string? CheckOutCuidadosRecuperacao { get; init; }
 
+    public DestinoPosOperatorio? DestinoPosOperatorio { get; init; }
     public DateTime? RecuperacaoEntradaEm { get; init; }
     public DateTime? RecuperacaoSaidaEm { get; init; }
     [MaxLength(2000)] public string? Intercorrencias { get; init; }
     [MaxLength(2000)] public string? ObservacoesRecuperacao { get; init; }
+    public NivelConsciencia? RecuperacaoNivelConsciencia { get; init; }
+    public SuporteOxigenio? RecuperacaoSuporteOxigenio { get; init; }
+    [MaxLength(60)] public string? RecuperacaoOxigenioDetalhe { get; init; }
+    public bool RecuperacaoAcessoVenosoPeriferico { get; init; }
+    [MaxLength(200)] public string? RecuperacaoAcessoVenosoDescricao { get; init; }
+    public bool RecuperacaoCateterVenosoCentral { get; init; }
+    [MaxLength(200)] public string? RecuperacaoCateterVenosoCentralLocal { get; init; }
+    [MaxLength(1000)] public string? RecuperacaoInfusoes { get; init; }
+    public bool RecuperacaoIntervencaoIntensiva { get; init; }
+    [MaxLength(1000)] public string? RecuperacaoDrogasVasoativas { get; init; }
+    public bool RecuperacaoDreno { get; init; }
+    [MaxLength(300)] public string? RecuperacaoDrenoDescricao { get; init; }
+    public bool RecuperacaoSondaVesical { get; init; }
+    public bool RecuperacaoSondaNasogastrica { get; init; }
+    [MaxLength(300)] public string? RecuperacaoOutroDispositivo { get; init; }
+    [MaxLength(4000)] public string? RecuperacaoEvolucaoMedica { get; init; }
+    [MaxLength(4000)] public string? RecuperacaoEvolucaoEnfermagem { get; init; }
     public bool PertencesDevolvidos { get; init; }
     [MaxLength(300)] public string? RecuperacaoDieta { get; init; }
 
@@ -977,6 +1019,8 @@ public sealed record CirurgiaDto(
     string? PertencesDestino,
     /// <summary>A hora em que a maca saiu, digitada por quem encaminhou.</summary>
     DateTime? EncaminhadoAoCentroEm,
+    /// <summary>A hora em que o paciente chegou na sala. A distancia entre as duas e espera.</summary>
+    DateTime? ChegadaAoCentroEm,
     bool CheckInIdentidadeConfirmada,
     bool CheckInSitioMarcado,
     bool CheckInConsentimentoConferido,
@@ -992,23 +1036,69 @@ public sealed record CirurgiaDto(
     bool TimeOutUmMonitorizacaoOk,
     bool TimeOutUmViaAereaAvaliada,
     bool TimeOutUmRiscoSangramentoAvaliado,
+    bool TimeOutUmExamesEmSala,
+    bool TimeOutUmVerificacaoAnestesica,
+    /// <summary>Achado, e nao conferencia: a resposta de "a via aerea foi avaliada".</summary>
+    bool TimeOutUmViaAereaDificil,
     DateTime? TimeOutUmEm,
     bool TimeOutDoisPacienteSitioProcedimentoConfirmados,
     bool TimeOutDoisAntibioticoProfilatico,
+    string? TimeOutDoisAntibioticoQual,
     bool TimeOutDoisImagensDisponiveis,
     bool TimeOutDoisEventosCriticosRevistos,
     bool TimeOutDoisMaterialEsterilizado,
+    bool TimeOutDoisPrevisaoBiopsia,
+    int? TimeOutDoisTempoPrevistoMinutos,
+    bool TimeOutDoisInstrumentalIntegrador,
     DateTime? TimeOutDoisEm,
+    /// <summary>
+    /// O transoperatorio: o que aconteceu na sala, entre a inducao e o fecho.
+    /// </summary>
+    List<TipoAnestesia> Anestesia,
+    string? AnestesiaLocal,
+    PosicionamentoCirurgico? Posicionamento,
+    bool PlacaBisturi,
+    string? PlacaBisturiLocal,
+    string? PreparoDaPele,
+    string? Antissepsia,
+    string? IncisaoCirurgica,
+    string? Curativo,
+    string? MedicacoesRealizadas,
+    /// <summary>O lado esquerdo da contagem do check out.</summary>
+    int? GazesUtilizadas,
+    int? CompressasUtilizadas,
+    string? EvolucaoMedica,
+    string? EvolucaoEnfermagem,
     bool CheckOutProcedimentoRegistrado,
     bool CheckOutContagemConfere,
     bool CheckOutAmostrasIdentificadas,
+    int? CheckOutBiopsiaQuantidade,
     bool CheckOutProblemasComEquipamento,
     string? CheckOutCuidadosRecuperacao,
     DateTime? CheckOutEm,
+    /// <summary>Para onde o paciente foi ao sair da sala.</summary>
+    DestinoPosOperatorio? DestinoPosOperatorio,
     DateTime? RecuperacaoEntradaEm,
     DateTime? RecuperacaoSaidaEm,
     string? Intercorrencias,
     string? ObservacoesRecuperacao,
+    NivelConsciencia? RecuperacaoNivelConsciencia,
+    SuporteOxigenio? RecuperacaoSuporteOxigenio,
+    string? RecuperacaoOxigenioDetalhe,
+    bool RecuperacaoAcessoVenosoPeriferico,
+    string? RecuperacaoAcessoVenosoDescricao,
+    bool RecuperacaoCateterVenosoCentral,
+    string? RecuperacaoCateterVenosoCentralLocal,
+    string? RecuperacaoInfusoes,
+    bool RecuperacaoIntervencaoIntensiva,
+    string? RecuperacaoDrogasVasoativas,
+    bool RecuperacaoDreno,
+    string? RecuperacaoDrenoDescricao,
+    bool RecuperacaoSondaVesical,
+    bool RecuperacaoSondaNasogastrica,
+    string? RecuperacaoOutroDispositivo,
+    string? RecuperacaoEvolucaoMedica,
+    string? RecuperacaoEvolucaoEnfermagem,
     bool PertencesDevolvidos,
     string? RecuperacaoDieta,
     DesfechoConsulta? Desfecho,

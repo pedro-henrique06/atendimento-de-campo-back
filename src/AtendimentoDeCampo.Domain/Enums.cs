@@ -87,6 +87,78 @@ public enum Lateralidade
     Bilateral = 3
 }
 
+/// <summary>
+/// Tecnica anestesica empregada.
+///
+/// Lista, e nao valor unico: raqui com sedacao e rotina, e guardar so uma das
+/// duas apagaria metade do que foi feito. Os valores sao gravados como inteiro —
+/// novos membros entram no fim.
+/// </summary>
+public enum TipoAnestesia
+{
+    Local = 0,
+    BloqueioRaqui = 1,
+    BloqueioBulbar = 2,
+    Inalatoria = 3,
+    Sedacao = 4,
+
+    /// <summary>
+    /// Anestesia geral. Nao esta no formulario de papel, que lista so as
+    /// tecnicas da missao; existe aqui porque a ficha tem que conseguir
+    /// registrar o que aconteceu, e nao so o que estava previsto.
+    /// </summary>
+    Geral = 5
+}
+
+/// <summary>
+/// Como o paciente foi posicionado na mesa.
+///
+/// Importa depois: lesao de nervo periferico e de pele por compressao se
+/// explica pelo decubito, e a pergunta aparece semanas depois da cirurgia.
+/// </summary>
+public enum PosicionamentoCirurgico
+{
+    DecubitoDorsal = 0,
+    DecubitoVentral = 1,
+    DecubitoLateralEsquerdo = 2,
+    DecubitoLateralDireito = 3
+}
+
+/// <summary>Para onde o paciente foi ao sair da sala.</summary>
+public enum DestinoPosOperatorio
+{
+    RecuperacaoAnestesica = 0,
+    PosOperatorio = 1
+}
+
+/// <summary>
+/// Nivel de consciencia na recuperacao.
+///
+/// E o primeiro dado que alguem olha ao chegar perto do leito, e a sequencia
+/// tem ordem clinica: do acordado ao sedado.
+/// </summary>
+public enum NivelConsciencia
+{
+    Acordado = 0,
+    Sonolento = 1,
+    Adormecido = 2,
+    Sedado = 3
+}
+
+/// <summary>
+/// Como o paciente esta recebendo oxigenio na recuperacao.
+///
+/// <see cref="ArAmbiente"/> e um valor, e nao a ausencia de resposta: "em ar
+/// ambiente" e informacao clinica, e nulo e "ninguem anotou".
+/// </summary>
+public enum SuporteOxigenio
+{
+    ArAmbiente = 0,
+    CateterNasal = 1,
+    MascaraVenturi = 2,
+    MascaraNaoReinalante = 3
+}
+
 public enum ConselhoTipo
 {
     Nenhum = 0,

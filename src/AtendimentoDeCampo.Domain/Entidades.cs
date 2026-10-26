@@ -669,6 +669,16 @@ public class Cirurgia
     /// </summary>
     public DateTime? EncaminhadoAoCentroEm { get; set; }
 
+    /// <summary>
+    /// Quando o paciente chegou ao centro cirurgico.
+    ///
+    /// O par de <see cref="EncaminhadoAoCentroEm"/>, e nao um detalhe dele: a
+    /// distancia entre a saida da enfermaria e a chegada na sala e tempo de
+    /// paciente em jejum num corredor, e e a unica forma de ver que houve
+    /// espera.
+    /// </summary>
+    public DateTime? ChegadaAoCentroEm { get; set; }
+
     // -- Check-in: antes de o paciente entrar na sala ----------------------
 
     public bool CheckInIdentidadeConfirmada { get; set; }
@@ -693,22 +703,132 @@ public class Cirurgia
     public bool TimeOutUmMonitorizacaoOk { get; set; }
     public bool TimeOutUmViaAereaAvaliada { get; set; }
     public bool TimeOutUmRiscoSangramentoAvaliado { get; set; }
+
+    /// <summary>Exames de imagem e laboratoriais essenciais estao na sala.</summary>
+    public bool TimeOutUmExamesEmSala { get; set; }
+
+    /// <summary>
+    /// Conferencia do material de via aerea: KT5, ambu, laringoscopio,
+    /// aspirador, seringas identificadas.
+    ///
+    /// Conferencia propria, e nao parte de <see cref="TimeOutUmViaAereaAvaliada"/>:
+    /// uma e sobre o paciente — como e a via aerea dele —, a outra e sobre o
+    /// carrinho. Marcar as duas numa caixa so faz a equipe conferir uma e
+    /// assinar as duas.
+    /// </summary>
+    public bool TimeOutUmVerificacaoAnestesica { get; set; }
+
+    /// <summary>
+    /// A via aerea foi avaliada como dificil.
+    ///
+    /// Achado, e nao conferencia: as outras caixas dizem "olhamos para isso",
+    /// e esta diz o que foi encontrado. Fica ao lado de
+    /// <see cref="TimeOutUmViaAereaAvaliada"/> porque e a resposta dela.
+    /// </summary>
+    public bool TimeOutUmViaAereaDificil { get; set; }
+
     public DateTime? TimeOutUmEm { get; set; }
 
     // -- Time out 2: antes da incisao --------------------------------------
 
     public bool TimeOutDoisPacienteSitioProcedimentoConfirmados { get; set; }
     public bool TimeOutDoisAntibioticoProfilatico { get; set; }
+
+    /// <summary>
+    /// Qual antibiotico, e quando.
+    ///
+    /// A caixa sozinha nao responde a pergunta que o pos-operatorio faz. E a
+    /// regra do formulario e "ate 60 min antes da incisao": sem o nome e a hora
+    /// nao da para dizer se foi cumprida.
+    /// </summary>
+    public string? TimeOutDoisAntibioticoQual { get; set; }
+
     public bool TimeOutDoisImagensDisponiveis { get; set; }
     public bool TimeOutDoisEventosCriticosRevistos { get; set; }
     public bool TimeOutDoisMaterialEsterilizado { get; set; }
+
+    /// <summary>Ha previsao de biopsia neste procedimento.</summary>
+    public bool TimeOutDoisPrevisaoBiopsia { get; set; }
+
+    /// <summary>
+    /// Tempo previsto para o procedimento, em minutos.
+    ///
+    /// Dito em voz alta antes da incisao: e o que permite a equipe perceber que
+    /// a cirurgia passou do previsto enquanto ela ainda esta acontecendo.
+    /// </summary>
+    public int? TimeOutDoisTempoPrevistoMinutos { get; set; }
+
+    /// <summary>O integrador do instrumental conferiu a esterilizacao.</summary>
+    public bool TimeOutDoisInstrumentalIntegrador { get; set; }
+
     public DateTime? TimeOutDoisEm { get; set; }
+
+    // -- Transoperatorio ---------------------------------------------------
+    //
+    // O que aconteceu na sala, entre a induducao e o fecho. Ate aqui a ficha ia
+    // do time out direto para o check out: a lista de verificacao era registrada
+    // inteira e o procedimento em si nao tinha onde ser descrito.
+
+    /// <summary>
+    /// Tecnicas anestesicas empregadas. Lista porque se combinam.
+    /// </summary>
+    public List<TipoAnestesia> Anestesia { get; set; } = new();
+
+    /// <summary>Onde o bloqueio ou a anestesia local foi feito.</summary>
+    public string? AnestesiaLocal { get; set; }
+
+    public PosicionamentoCirurgico? Posicionamento { get; set; }
+
+    public bool PlacaBisturi { get; set; }
+
+    /// <summary>
+    /// Onde a placa foi colocada.
+    ///
+    /// Queimadura por placa de bisturi e evento adverso conhecido, e a
+    /// investigacao comeca por onde ela estava.
+    /// </summary>
+    public string? PlacaBisturiLocal { get; set; }
+
+    public string? PreparoDaPele { get; set; }
+    public string? Antissepsia { get; set; }
+    public string? IncisaoCirurgica { get; set; }
+    public string? Curativo { get; set; }
+
+    /// <summary>O que foi administrado durante o procedimento.</summary>
+    public string? MedicacoesRealizadas { get; set; }
+
+    /// <summary>
+    /// Quantas gazes e quantas compressas entraram no campo.
+    ///
+    /// Numeros, e nao texto: sao o lado esquerdo da contagem do check out, e
+    /// uma conferencia em que os dois lados sao frase nao e conferencia.
+    /// </summary>
+    public int? GazesUtilizadas { get; set; }
+
+    public int? CompressasUtilizadas { get; set; }
+
+    /// <summary>A evolucao de quem operou, escrita ainda na sala.</summary>
+    public string? EvolucaoMedica { get; set; }
+
+    /// <summary>A anotacao da enfermagem sobre o intraoperatorio.</summary>
+    public string? EvolucaoEnfermagem { get; set; }
 
     // -- Check-out: antes de sair da sala ----------------------------------
 
     public bool CheckOutProcedimentoRegistrado { get; set; }
     public bool CheckOutContagemConfere { get; set; }
     public bool CheckOutAmostrasIdentificadas { get; set; }
+
+    /// <summary>
+    /// Quantas pecas foram para biopsia.
+    ///
+    /// O par de <see cref="CheckOutAmostrasIdentificadas"/>: a caixa diz que
+    /// foram identificadas, e o numero e o que o laboratorio confere contra o
+    /// que recebeu. Peca perdida entre a sala e o laboratorio so aparece
+    /// quando os dois numeros existem.
+    /// </summary>
+    public int? CheckOutBiopsiaQuantidade { get; set; }
+
     public bool CheckOutProblemasComEquipamento { get; set; }
 
     /// <summary>O que a recuperacao precisa saber antes de receber o paciente.</summary>
@@ -716,12 +836,72 @@ public class Cirurgia
 
     public DateTime? CheckOutEm { get; set; }
 
-    // -- Recuperacao -------------------------------------------------------
+    // -- Recuperacao pos-anestesica ----------------------------------------
+
+    /// <summary>
+    /// Para onde o paciente foi ao sair da sala.
+    ///
+    /// E a pergunta "condicoes de encaminhamento do paciente" do formulario, e
+    /// decide quem recebe: a recuperacao anestesica tem vigilancia continua, o
+    /// pos-operatorio nao.
+    /// </summary>
+    public DestinoPosOperatorio? DestinoPosOperatorio { get; set; }
 
     public DateTime? RecuperacaoEntradaEm { get; set; }
     public DateTime? RecuperacaoSaidaEm { get; set; }
     public string? Intercorrencias { get; set; }
     public string? ObservacoesRecuperacao { get; set; }
+
+    public NivelConsciencia? RecuperacaoNivelConsciencia { get; set; }
+
+    public SuporteOxigenio? RecuperacaoSuporteOxigenio { get; set; }
+
+    /// <summary>
+    /// O numero que acompanha o suporte: litros por minuto no cateter, por
+    /// cento na Venturi. Fica vazio em ar ambiente, que nao tem numero.
+    /// </summary>
+    public string? RecuperacaoOxigenioDetalhe { get; set; }
+
+    public bool RecuperacaoAcessoVenosoPeriferico { get; set; }
+
+    /// <summary>Calibre e local do acesso periferico.</summary>
+    public string? RecuperacaoAcessoVenosoDescricao { get; set; }
+
+    public bool RecuperacaoCateterVenosoCentral { get; set; }
+    public string? RecuperacaoCateterVenosoCentralLocal { get; set; }
+
+    /// <summary>Soros, infusoes e medicamentos correndo na recuperacao.</summary>
+    public string? RecuperacaoInfusoes { get; set; }
+
+    /// <summary>
+    /// O paciente precisou de intervencao intensiva.
+    ///
+    /// Caixa propria porque e o gatilho do resto do bloco — droga vasoativa,
+    /// cateter central — e porque e o numero que a coordenacao procura quando
+    /// pergunta como foi a missao.
+    /// </summary>
+    public bool RecuperacaoIntervencaoIntensiva { get; set; }
+
+    /// <summary>Droga vasoativa e vazao, uma por linha.</summary>
+    public string? RecuperacaoDrogasVasoativas { get; set; }
+
+    public bool RecuperacaoDreno { get; set; }
+    public string? RecuperacaoDrenoDescricao { get; set; }
+
+    /// <summary>Sonda vesical de demora.</summary>
+    public bool RecuperacaoSondaVesical { get; set; }
+
+    /// <summary>Sonda nasogastrica.</summary>
+    public bool RecuperacaoSondaNasogastrica { get; set; }
+
+    /// <summary>Qualquer outro dispositivo que saiu da sala com o paciente.</summary>
+    public string? RecuperacaoOutroDispositivo { get; set; }
+
+    /// <summary>A evolucao medica escrita na recuperacao.</summary>
+    public string? RecuperacaoEvolucaoMedica { get; set; }
+
+    /// <summary>A anotacao de enfermagem da recuperacao.</summary>
+    public string? RecuperacaoEvolucaoEnfermagem { get; set; }
 
     /// <summary>
     /// Os pertences voltaram para o paciente.
