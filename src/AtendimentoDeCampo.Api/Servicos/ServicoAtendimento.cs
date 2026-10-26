@@ -477,6 +477,27 @@ public sealed class ServicoAtendimento
         consulta.SintomasSaudeMental = req.SintomasSaudeMental;
         consulta.PerdasVivenciadas = req.PerdasVivenciadas;
 
+        consulta.ExameLaboratorialSolicitado = req.ExameLaboratorialSolicitado;
+
+        // O detalhe so existe depois do sim: "quais exames" ao lado de "nao
+        // pedi nenhum" e contradicao gravada.
+        consulta.ExameLaboratorialDescricao = req.ExameLaboratorialSolicitado
+            ? Limpar(req.ExameLaboratorialDescricao)
+            : null;
+
+        consulta.PapanicolauSolicitado = req.PapanicolauSolicitado;
+        consulta.PapanicolauObservacao = req.PapanicolauSolicitado
+            ? Limpar(req.PapanicolauObservacao)
+            : null;
+
+        consulta.OutroExameSolicitado = Limpar(req.OutroExameSolicitado);
+        consulta.Procedimentos = req.Procedimentos;
+
+        // Mesma regra: sem procedimento nenhum, nao ha o que observar.
+        consulta.ProcedimentosObservacao = req.Procedimentos.Count > 0
+            ? Limpar(req.ProcedimentosObservacao)
+            : null;
+
         if (req.Especialidade == Especialidade.Ortopedia && req.Ortopedia is not null)
         {
             consulta.Ortopedia ??= new ConsultaOrtopedia { ConsultaId = consulta.Id };
@@ -1823,6 +1844,7 @@ public sealed class ServicoAtendimento
             .Include(a => a.Etapas).ThenInclude(e => e.Farmacia)
             .Include(a => a.Etapas).ThenInclude(e => e.Cirurgia)
             .Include(a => a.Etapas).ThenInclude(e => e.Dispensacoes).ThenInclude(d => d.Item)
+            .Include(a => a.Etapas).ThenInclude(e => e.Dispensacoes).ThenInclude(d => d.ChecadaPor)
             .FirstOrDefaultAsync(a => a.Id == id, ct)
             ?? throw new RegraDeNegocioException("Atendimento nao encontrado.");
 
@@ -2036,7 +2058,30 @@ public sealed class ServicoAtendimento
         CancellationToken ct)
     {
         var existentes = await _db.Dispensacoes.Where(d => d.EtapaId == etapaId).ToListAsync(ct);
-        _db.Dispensacoes.RemoveRange(existentes);
+
+        /*
+            O que ja foi checado nao e reescrito.
+
+            Checar e a assinatura de quem administrou: e fato, nao plano. Se o
+            medico corrige a prescricao depois de a enfermagem ter dado o
+            remedio, a correcao vale para o que ainda nao foi dado — o que foi
+            dado continua tendo sido. Apagar e recriar a lista inteira faria a
+            assinatura sumir junto, e o prontuario passaria a dizer que ninguem
+            administrou nada.
+
+            Por isso o item ja checado fica, e o pedido que repete esse mesmo
+            item e ignorado: dois registros do mesmo remedio, um assinado e
+            outro nao, seriam lidos como duas doses.
+        */
+        var checadas = existentes.Where(d => d.ChecadaEm is not null).ToList();
+        _db.Dispensacoes.RemoveRange(existentes.Except(checadas));
+
+        if (checadas.Count > 0)
+        {
+            pedidos = pedidos
+                .Where(p => !checadas.Any(c => MesmoItem(c, p)))
+                .ToList();
+        }
 
         if (pedidos.Count == 0)
         {
@@ -2142,6 +2187,19 @@ public sealed class ServicoAtendimento
         ["consulta.encaminhadoPara"] = c.EncaminhadoPara?.ToString(),
         ["consulta.sintomasSaudeMental"] = c.SintomasSaudeMental.Count == 0 ? null : string.Join(",", c.SintomasSaudeMental),
         ["consulta.perdasVivenciadas"] = c.PerdasVivenciadas.Count == 0 ? null : string.Join(",", c.PerdasVivenciadas),
+
+        // Os exames pedidos numa linha: a pergunta depois e "o que esta
+        // pendente para este paciente?", e tres linhas de sim e nao respondem
+        // pior do que uma lista do que foi pedido.
+        ["consulta.examesSolicitados"] = Conferidos(
+            (c.ExameLaboratorialSolicitado, "laboratorial"),
+            (c.PapanicolauSolicitado, "papanicolau")),
+        ["consulta.exameLaboratorialDescricao"] = c.ExameLaboratorialDescricao,
+        ["consulta.papanicolauObservacao"] = c.PapanicolauObservacao,
+        ["consulta.outroExameSolicitado"] = c.OutroExameSolicitado,
+        ["consulta.procedimentos"] = c.Procedimentos.Count == 0 ? null : string.Join(",", c.Procedimentos),
+        ["consulta.procedimentosObservacao"] = c.ProcedimentosObservacao,
+
         ["ortopedia.localizacao"] = c.Ortopedia?.Localizacao,
         ["ortopedia.mecanismoTrauma"] = c.Ortopedia?.MecanismoTrauma,
         ["ortopedia.imobilizacao"] = c.Ortopedia is null ? null : Booleano(c.Ortopedia.Imobilizacao),
@@ -2278,6 +2336,110 @@ public sealed class ServicoAtendimento
         ["cirurgia.recuperacaoEvolucaoEnfermagem"] = c.RecuperacaoEvolucaoEnfermagem,
         ["cirurgia.desfecho"] = c.Desfecho?.ToString()
     };
+
+    /// <summary>
+    /// Se a dispensacao ja gravada e o pedido novo falam do mesmo item.
+    ///
+    /// Pela identidade do item, e nao pela dose: justamente porque a dose pode
+    /// ter sido corrigida depois, e e disso que a regra protege. Dois registros
+    /// do mesmo remedio — um assinado e outro nao — seriam lidos como duas
+    /// doses.
+    /// </summary>
+    private static bool MesmoItem(Dispensacao gravada, DispensacaoRequest pedido)
+        => gravada.ItemId is not null
+            ? gravada.ItemId == pedido.ItemId
+            : string.Equals(
+                gravada.DescricaoLivre?.Trim(),
+                pedido.DescricaoLivre?.Trim(),
+                StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Assina a linha da prescricao: quem checou este item, e quando.
+    ///
+    /// Qualquer pessoa da equipe pode checar, e nao so a enfermagem: em campo as
+    /// funcoes se cobrem, e o que importa e que a assinatura diga quem foi. O
+    /// autor sai do token, e nao do pedido.
+    /// </summary>
+    public async Task<DispensacaoDto> ChecarDispensacaoAsync(
+        Guid atendimentoId,
+        Guid dispensacaoId,
+        bool checada,
+        Guid profissionalId,
+        CancellationToken ct = default)
+    {
+        var dispensacao = await _db.Dispensacoes
+            .Include(d => d.Item)
+            .Include(d => d.ChecadaPor)
+            .Include(d => d.Etapa)
+            .FirstOrDefaultAsync(
+                d => d.Id == dispensacaoId && d.Etapa!.AtendimentoId == atendimentoId, ct)
+            ?? throw new RegraDeNegocioException("Item da prescricao nao encontrado neste atendimento.");
+
+        if (checada)
+        {
+            // Rechecar nao reescreve a hora: a primeira e a que vale, pelo mesmo
+            // motivo das paradas da lista de verificacao cirurgica.
+            if (dispensacao.ChecadaEm is null)
+            {
+                dispensacao.ChecadaPorId = profissionalId;
+                dispensacao.ChecadaEm = AgoraComoOBancoGuarda();
+            }
+        }
+        else
+        {
+            dispensacao.ChecadaPorId = null;
+            dispensacao.ChecadaEm = null;
+        }
+
+        /*
+            Entra no historico com o nome do item, e nao com o identificador da
+            linha: quem le o prontuario depois procura pelo remedio.
+
+            Desmarcar tambem fica: e a correcao de quem checou a linha errada, e
+            numa prescricao e exatamente o tipo de coisa que alguem vai querer
+            explicar.
+        */
+        _auditoria.RegistrarDiffs(
+            atendimentoId,
+            profissionalId,
+            new[]
+            {
+                new DiffCampo(
+                    "prescricao.checagem",
+                    checada ? null : NomeDoItem(dispensacao),
+                    checada ? NomeDoItem(dispensacao) : null)
+            },
+            dispensacao.Etapa!.Especialidade,
+            aposFinalizacao: false);
+
+        await _db.SaveChangesAsync(ct);
+
+        // Recarrega o autor: o `ChecadaPorId` acabou de mudar, e a navegacao
+        // carregada antes ainda aponta para quem estava la.
+        await _db.Entry(dispensacao).Reference(d => d.ChecadaPor).LoadAsync(ct);
+
+        return Mapeadores.ParaDispensacaoDto(dispensacao);
+    }
+
+    private static string NomeDoItem(Dispensacao d)
+        => d.Item?.Nome ?? d.DescricaoLivre ?? "-";
+
+    /// <summary>
+    /// Agora, na precisao em que o Postgres vai guardar.
+    ///
+    /// `DateTime` conta em 100 ns e `timestamptz` em microssegundos, entao o
+    /// valor gravado e truncado na ida. Sem isto, esta e a unica rota que
+    /// devolve a entidade recem-alterada em vez de reler do banco — e a hora
+    /// que ela responde e diferente da que qualquer leitura seguinte traz, por
+    /// algumas centenas de nanossegundos. Clinicamente nao muda nada; para quem
+    /// compara os dois valores para saber se algo mudou, muda tudo.
+    /// </summary>
+    private static DateTime AgoraComoOBancoGuarda()
+    {
+        var agora = DateTime.UtcNow;
+
+        return new DateTime(agora.Ticks - (agora.Ticks % TimeSpan.TicksPerMicrosecond), agora.Kind);
+    }
 
     /// <summary>Os itens marcados, em lista, para o historico ler de uma vez.</summary>
     private static string? Conferidos(params (bool Marcado, string Nome)[] itens)

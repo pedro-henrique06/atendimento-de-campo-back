@@ -207,6 +207,22 @@ public class AtendimentosController : ControllerBase
     }
 
     /// <summary>
+    /// Assina uma linha da prescricao: quem checou este item, e quando.
+    ///
+    /// E a coluna "Profissional | Hora" do formulario de papel. O autor sai do
+    /// token; o corpo so diz se a linha passa a estar checada ou volta a nao
+    /// estar — desmarcar e a correcao de quem checou a linha errada, e fica no
+    /// historico como qualquer outra.
+    /// </summary>
+    [HttpPost("{id:guid}/prescricao/{dispensacaoId:guid}/checagem")]
+    public async Task<ActionResult<DispensacaoDto>> ChecarDispensacao(
+        Guid id,
+        Guid dispensacaoId,
+        [FromBody] ChecarDispensacaoRequest req,
+        CancellationToken ct)
+        => Ok(await _servico.ChecarDispensacaoAsync(id, dispensacaoId, req.Checada, ProfissionalId, ct));
+
+    /// <summary>
     /// A ficha cirurgica. Pode ser salva varias vezes — uma por parada da lista
     /// de verificacao —, e so fecha a fila quando vem com desfecho.
     /// </summary>
