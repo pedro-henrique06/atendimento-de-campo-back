@@ -271,6 +271,13 @@ public static class Mapeadores
             ginecologia,
             c.SintomasSaudeMental,
             c.PerdasVivenciadas,
+            c.ExameLaboratorialSolicitado,
+            c.ExameLaboratorialDescricao,
+            c.PapanicolauSolicitado,
+            c.PapanicolauObservacao,
+            c.OutroExameSolicitado,
+            c.Procedimentos,
+            c.ProcedimentosObservacao,
             etapa.Dispensacoes.Select(ParaDispensacaoDto).ToList(),
             etapa.ConcluidaEm);
     }
@@ -479,7 +486,7 @@ public static class Mapeadores
             etapa.ConcluidaEm);
     }
 
-    private static DispensacaoDto ParaDispensacaoDto(Dispensacao d)
+    public static DispensacaoDto ParaDispensacaoDto(Dispensacao d)
     {
         var nome = d.Item is not null
             ? MontarNomeItem(d.Item)
@@ -492,7 +499,9 @@ public static class Mapeadores
             d.Unidade,
             d.Via,
             d.Posologia,
-            d.Item is null);
+            d.Item is null,
+            ParaAutor(d.ChecadaPor),
+            d.ChecadaEm);
     }
 
     public static string MontarNomeItem(ItemCatalogo item)

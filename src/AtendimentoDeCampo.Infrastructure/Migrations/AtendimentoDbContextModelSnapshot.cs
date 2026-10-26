@@ -589,6 +589,13 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<string>("ExameLaboratorialDescricao")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<bool>("ExameLaboratorialSolicitado")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("HistoriaClinica")
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
@@ -597,9 +604,28 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("character varying(2000)");
 
+                    b.Property<string>("OutroExameSolicitado")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("PapanicolauObservacao")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<bool>("PapanicolauSolicitado")
+                        .HasColumnType("boolean");
+
                     b.Property<int[]>("PerdasVivenciadas")
                         .IsRequired()
                         .HasColumnType("integer[]");
+
+                    b.Property<int[]>("Procedimentos")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.Property<string>("ProcedimentosObservacao")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("SintomasDescricao")
                         .HasMaxLength(2000)
@@ -699,6 +725,12 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime?>("ChecadaEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ChecadaPorId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CriadaEm")
                         .HasColumnType("timestamp with time zone");
 
@@ -730,6 +762,8 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ChecadaPorId");
 
                     b.HasIndex("EtapaId");
 
@@ -1516,6 +1550,11 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
 
             modelBuilder.Entity("AtendimentoDeCampo.Domain.Dispensacao", b =>
                 {
+                    b.HasOne("AtendimentoDeCampo.Domain.Profissional", "ChecadaPor")
+                        .WithMany()
+                        .HasForeignKey("ChecadaPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("AtendimentoDeCampo.Domain.Etapa", "Etapa")
                         .WithMany("Dispensacoes")
                         .HasForeignKey("EtapaId")
@@ -1526,6 +1565,8 @@ namespace AtendimentoDeCampo.Infrastructure.Migrations
                         .WithMany("Dispensacoes")
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ChecadaPor");
 
                     b.Navigation("Etapa");
 

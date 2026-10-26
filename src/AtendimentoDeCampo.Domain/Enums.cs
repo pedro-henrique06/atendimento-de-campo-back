@@ -490,6 +490,21 @@ public enum ProcedimentoOdontologico
     Outro = 7
 }
 
+/// <summary>
+/// O que foi feito na propria consulta, alem de examinar e prescrever.
+///
+/// Distinto de <see cref="ProcedimentoEnfermagem"/>, e nao uma duplicata dele:
+/// o curativo feito pelo medico na sala da consulta e outro ato, de outra
+/// pessoa, em outra fila — e producao por area so continua confiavel se cada um
+/// contar na fila onde aconteceu.
+/// </summary>
+public enum ProcedimentoNaConsulta
+{
+    PassagemDiu = 0,
+    Curativo = 1,
+    Outro = 2
+}
+
 public enum ProcedimentoEnfermagem
 {
     Curativo = 0,

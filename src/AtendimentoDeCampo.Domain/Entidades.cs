@@ -472,6 +472,40 @@ public class Consulta
     public List<SintomaSaudeMental> SintomasSaudeMental { get; set; } = new();
     public List<PerdaVivenciada> PerdasVivenciadas { get; set; } = new();
 
+    // -- Exames complementares solicitados ---------------------------------
+    //
+    // O que a consulta pediu e nao sai dali resolvido.
+    //
+    // O ultrassom NAO esta aqui, de proposito: pedir um USG e encaminhar para a
+    // fila do ultrassom, e e assim que o pedido chega a quem faz o exame. Uma
+    // caixa "USG" ao lado criaria um segundo registro do mesmo pedido, sem nada
+    // que os mantivesse de acordo — e na hora de contar quantos exames a missao
+    // pediu, os dois numeros discordariam.
+
+    public bool ExameLaboratorialSolicitado { get; set; }
+
+    /// <summary>Quais exames, quando o nome importa para quem coleta.</summary>
+    public string? ExameLaboratorialDescricao { get; set; }
+
+    public bool PapanicolauSolicitado { get; set; }
+    public string? PapanicolauObservacao { get; set; }
+
+    /// <summary>Qualquer outro exame pedido, pelo nome.</summary>
+    public string? OutroExameSolicitado { get; set; }
+
+    // -- Procedimentos feitos na consulta ----------------------------------
+
+    public List<ProcedimentoNaConsulta> Procedimentos { get; set; } = new();
+
+    /// <summary>
+    /// O detalhe do que foi feito: onde foi o curativo, que DIU foi passado.
+    ///
+    /// Um campo para a lista inteira, e nao um por procedimento: numa consulta
+    /// raramente ha mais de um, e tres caixas vazias em toda ficha ensinam a
+    /// equipe a pular o bloco.
+    /// </summary>
+    public string? ProcedimentosObservacao { get; set; }
+
     public ConsultaOrtopedia? Ortopedia { get; set; }
     public ConsultaGinecologia? Ginecologia { get; set; }
 }
@@ -1042,6 +1076,24 @@ public class Dispensacao
     public ViaAdministracao? Via { get; set; }
     public string? Posologia { get; set; }
     public DateTime CriadaEm { get; set; } = DateTime.UtcNow;
+
+    /// <summary>
+    /// Quem checou este item, e quando.
+    ///
+    /// E a coluna "Profissional | Hora" ao lado de cada linha da prescricao no
+    /// formulario de papel: quem prescreve e uma pessoa, quem administra e
+    /// outra, e a assinatura ao lado do item e o que liga as duas.
+    ///
+    /// Checado e um fato, e nao um plano — e por isso uma linha checada nao e
+    /// apagada quando a prescricao e reescrita. Ver
+    /// <c>ServicoAtendimento.SubstituirDispensacoesAsync</c>: editar a dose
+    /// depois de o remedio ter sido dado nao desfaz o que foi dado.
+    /// </summary>
+    public Guid? ChecadaPorId { get; set; }
+
+    public Profissional? ChecadaPor { get; set; }
+
+    public DateTime? ChecadaEm { get; set; }
 }
 
 /// <summary>Catalogo CID-10 com descricao nos tres idiomas da interface.</summary>

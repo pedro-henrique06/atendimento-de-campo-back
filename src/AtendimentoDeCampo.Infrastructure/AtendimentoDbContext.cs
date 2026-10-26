@@ -236,8 +236,14 @@ public class AtendimentoDbContext : DbContext
             e.Property(x => x.ExameFisico).HasMaxLength(2000);
             e.Property(x => x.OrientacoesGerais).HasMaxLength(2000);
             e.Property(x => x.Cid10Codigo).HasMaxLength(10);
+            e.Property(x => x.ExameLaboratorialDescricao).HasMaxLength(500);
+            e.Property(x => x.PapanicolauObservacao).HasMaxLength(300);
+            e.Property(x => x.OutroExameSolicitado).HasMaxLength(300);
+            e.Property(x => x.ProcedimentosObservacao).HasMaxLength(1000);
+
             AplicarListaEnum<Consulta, SintomaSaudeMental>(e, x => x.SintomasSaudeMental);
             AplicarListaEnum<Consulta, PerdaVivenciada>(e, x => x.PerdasVivenciadas);
+            AplicarListaEnum<Consulta, ProcedimentoNaConsulta>(e, x => x.Procedimentos);
 
             e.HasOne(x => x.Etapa)
                 .WithOne(x => x.Consulta)
@@ -448,6 +454,13 @@ public class AtendimentoDbContext : DbContext
             e.HasOne(x => x.Item)
                 .WithMany(x => x.Dispensacoes)
                 .HasForeignKey(x => x.ItemId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Quem checou nao se apaga junto com a conta: a assinatura de quem
+            // administrou um remedio tem que sobreviver ao fim da missao.
+            e.HasOne(x => x.ChecadaPor)
+                .WithMany()
+                .HasForeignKey(x => x.ChecadaPorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             e.HasIndex(x => x.ItemId);

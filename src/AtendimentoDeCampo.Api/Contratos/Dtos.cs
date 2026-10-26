@@ -708,9 +708,46 @@ public sealed record RegistrarConsultaRequest
     public List<SintomaSaudeMental> SintomasSaudeMental { get; init; } = new();
     public List<PerdaVivenciada> PerdasVivenciadas { get; init; } = new();
 
+    /// <summary>
+    /// Exames complementares pedidos na consulta.
+    /// </summary>
+    /// <remarks>
+    /// Sem USG: pedir um ultrassom e encaminhar para a fila do ultrassom, e uma
+    /// caixa aqui seria um segundo registro do mesmo pedido.
+    /// </remarks>
+    public bool ExameLaboratorialSolicitado { get; init; }
+
+    [MaxLength(500)]
+    public string? ExameLaboratorialDescricao { get; init; }
+
+    public bool PapanicolauSolicitado { get; init; }
+
+    [MaxLength(300)]
+    public string? PapanicolauObservacao { get; init; }
+
+    [MaxLength(300)]
+    public string? OutroExameSolicitado { get; init; }
+
+    public List<ProcedimentoNaConsulta> Procedimentos { get; init; } = new();
+
+    [MaxLength(1000)]
+    public string? ProcedimentosObservacao { get; init; }
+
     public OrtopediaRequest? Ortopedia { get; init; }
     public GinecologiaRequest? Ginecologia { get; init; }
     public List<DispensacaoRequest> Dispensacoes { get; init; } = new();
+}
+
+/// <summary>
+/// Marca ou desmarca a checagem de uma linha da prescricao.
+///
+/// Um campo so: quem checou e quando saem do token e do relogio, e nao do
+/// pedido. Aceitar a hora do cliente deixaria a assinatura valer o que o
+/// aparelho de quem envia disser que sao horas.
+/// </summary>
+public sealed record ChecarDispensacaoRequest
+{
+    public bool Checada { get; init; } = true;
 }
 
 public sealed record DispensacaoDto(
@@ -720,7 +757,13 @@ public sealed record DispensacaoDto(
     UnidadeDispensacao Unidade,
     ViaAdministracao? Via,
     string? Posologia,
-    bool ForaDoCatalogo);
+    bool ForaDoCatalogo,
+    /// <summary>
+    /// Quem checou e quando: a coluna "Profissional | Hora" ao lado de cada
+    /// linha da prescricao. Nulos enquanto o item nao foi checado.
+    /// </summary>
+    AutorDto? ChecadaPor = null,
+    DateTime? ChecadaEm = null);
 
 public sealed record ConsultaDto(
     Guid EtapaId,
@@ -754,6 +797,13 @@ public sealed record ConsultaDto(
     /// </remarks>
     List<SintomaSaudeMental> SintomasSaudeMental,
     List<PerdaVivenciada> PerdasVivenciadas,
+    bool ExameLaboratorialSolicitado,
+    string? ExameLaboratorialDescricao,
+    bool PapanicolauSolicitado,
+    string? PapanicolauObservacao,
+    string? OutroExameSolicitado,
+    List<ProcedimentoNaConsulta> Procedimentos,
+    string? ProcedimentosObservacao,
     List<DispensacaoDto> Dispensacoes,
     DateTime? ConcluidaEm);
 
